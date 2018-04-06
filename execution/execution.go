@@ -37,7 +37,6 @@ import (
 const GasLimit = uint64(1000000)
 
 type BatchExecutor interface {
-	state.Iterable
 	state.AccountUpdater
 	state.StorageSetter
 	// Execute transaction against block cache (i.e. block buffer)
@@ -128,10 +127,6 @@ func (exe *executor) RemoveAccount(address acm.Address) error {
 	return exe.stateCache.RemoveAccount(address)
 }
 
-func (exe *executor) IterateAccounts(consumer func(acm.Account) bool) (bool, error) {
-	return exe.stateCache.IterateAccounts(consumer)
-}
-
 // Storage
 func (exe *executor) GetStorage(address acm.Address, key binary.Word256) (binary.Word256, error) {
 	return exe.stateCache.GetStorage(address, key)
@@ -139,10 +134,6 @@ func (exe *executor) GetStorage(address acm.Address, key binary.Word256) (binary
 
 func (exe *executor) SetStorage(address acm.Address, key binary.Word256, value binary.Word256) error {
 	return exe.stateCache.SetStorage(address, key, value)
-}
-
-func (exe *executor) IterateStorage(address acm.Address, consumer func(key, value binary.Word256) bool) (bool, error) {
-	return exe.stateCache.IterateStorage(address, consumer)
 }
 
 func (exe *executor) Commit() (hash []byte, err error) {
