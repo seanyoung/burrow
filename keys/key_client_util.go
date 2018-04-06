@@ -26,11 +26,6 @@ import (
 
 // Monax-Keys server connects over http request-response structures
 
-type HTTPResponse struct {
-	Response string
-	Error    string
-}
-
 type Requester func(method string, args map[string]string) (response string, err error)
 
 func DefaultRequester(rpcAddress string, logger *logging.Logger) Requester {
@@ -65,11 +60,17 @@ func DefaultRequester(rpcAddress string, logger *logging.Logger) Requester {
 	}
 }
 
+type ErrConnectFailed string
+
+func (e ErrConnectFailed) Error() string {
+	return string(e)
+}
+
 func requestResponse(req *http.Request) (*HTTPResponse, error) {
 	client := new(http.Client)
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return nil, ErrConnectFailed(err.Error())
 	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf(resp.Status)
