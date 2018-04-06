@@ -345,16 +345,6 @@ func burrow() *cli.Cli {
 			}
 		})
 
-	app.Command("help",
-		"Get more detailed or exhaustive options of selected commands or flags.",
-		func(cmd *cli.Cmd) {
-
-			cmd.Spec = "[--participant-accounts] [--full-accounts] [--toml]"
-
-			cmd.Action = func() {
-			}
-		})
-
 	return app
 }
 
