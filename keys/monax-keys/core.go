@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/monax/bosmarmot/keys/crypto"
+	"github.com/hyperledger/burrow/keys/crypto"
 
-	tmint_crypto "github.com/monax/bosmarmot/keys/crypto/helpers"
 	"github.com/tendermint/go-wire"
+	tmint_crypto "github.com/hyperledger/burrow/keys/crypto/helpers"
 	"golang.org/x/crypto/ripemd160"
 )
 

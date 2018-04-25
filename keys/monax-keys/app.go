@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/monax/bosmarmot/keys/common"
+	"github.com/hyperledger/burrow/keys/common"
 
-	"github.com/monax/bosmarmot/project"
+	"github.com/hyperledger/burrow/project"
 	"github.com/spf13/cobra"
 )
 

@@ -7,7 +7,7 @@ import (
 	"log"
 	"os"
 
-	. "github.com/monax/bosmarmot/keys/common"
+	. "github.com/hyperledger/burrow/keys/common"
 	//"github.com/howeyc/gopass"
 	"github.com/spf13/cobra"
 )

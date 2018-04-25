@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/monax/bosmarmot/keys/monax-keys"
+	"github.com/hyperledger/burrow/keys/monax-keys"
 )
 
 func main() {

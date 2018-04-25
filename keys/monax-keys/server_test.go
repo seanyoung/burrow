@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/monax/bosmarmot/keys/crypto"
+	"github.com/hyperledger/burrow/keys/crypto"
 )
 
 // start the server

@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/monax/bosmarmot/keys/crypto"
+	"github.com/hyperledger/burrow/keys/crypto"
 )
 
 type Manager struct {

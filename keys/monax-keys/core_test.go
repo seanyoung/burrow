@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/monax/bosmarmot/keys/common"
-	"github.com/monax/bosmarmot/keys/crypto"
-	ed25519 "github.com/monax/bosmarmot/keys/crypto/helpers"
+	"github.com/hyperledger/burrow/keys/common"
+	"github.com/hyperledger/burrow/keys/crypto"
+	ed25519 "github.com/hyperledger/burrow/keys/crypto/helpers"
 	"github.com/stretchr/testify/assert"
 )
 
