@@ -27,8 +27,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/monax/bosmarmot/keys/crypto/helpers"
-	"github.com/monax/bosmarmot/keys/crypto/randentropy"
+	"github.com/hyperledger/burrow/keys/crypto/helpers"
+	"github.com/hyperledger/burrow/keys/crypto/randentropy"
 	"github.com/tendermint/ed25519"
 	"github.com/tendermint/go-crypto"
 	uuid "github.com/wayn3h0/go-uuid"

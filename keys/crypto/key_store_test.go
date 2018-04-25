@@ -1,7 +1,7 @@
 package crypto
 
 import (
-	"github.com/monax/bosmarmot/keys/common"
+	"github.com/hyperledger/burrow/keys/common"
 
 	"reflect"
 	"testing"

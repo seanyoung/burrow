@@ -3,7 +3,7 @@ package helpers
 import (
 	"bytes"
 
-	"github.com/monax/bosmarmot/keys/common"
+	"github.com/hyperledger/burrow/keys/common"
 
 	"github.com/tendermint/ed25519"
 	"github.com/tendermint/go-wire"

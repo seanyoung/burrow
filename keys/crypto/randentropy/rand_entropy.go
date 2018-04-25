@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/monax/bosmarmot/keys/crypto/sha3"
+	"github.com/hyperledger/burrow/keys/crypto/sha3"
 )
 
 var Reader io.Reader = &randEntropy{}

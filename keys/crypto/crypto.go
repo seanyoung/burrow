@@ -6,8 +6,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 
-	"github.com/monax/bosmarmot/keys/crypto/helpers"
-	"github.com/monax/bosmarmot/keys/crypto/sha3"
+	"github.com/hyperledger/burrow/keys/crypto/helpers"
+	"github.com/hyperledger/burrow/keys/crypto/sha3"
 
 	"golang.org/x/crypto/ripemd160"
 )
