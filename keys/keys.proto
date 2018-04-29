@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package core;
+package keys;
 
 service Keys {
     rpc Gen(GenRequest) returns (GenResponse);
@@ -10,12 +10,14 @@ service Keys {
     rpc Sign(SignRequest) returns (SignResponse);
     rpc Verify(VerifyRequest) returns (Error);
     rpc Hash(HashRequest) returns (HashResponse);
-    rpc Remove(string) returns (Error);
-    rpc List(string) returns (ListResponse);
-    rpc Remove(string) returns (Error);
-    rpc Add(AddRequest) returns (Error):
+    rpc Remove(KeyName) returns (Error);
+    rpc List(KeyName) returns (ListResponse);
+    rpc Add(AddRequest) returns (Error);
 }
 
+message KeyName {
+    string keyname = 1;
+}
 message Error {
     string error = 1;
 }
@@ -60,9 +62,9 @@ message SignRequest {
     bytes message = 3;
 }
 
-message SignRespone {
+message SignResponse {
     string signature = 1;
-    Errror error = 2
+    Error error = 2;
 }
 
 message VerifyRequest {
@@ -89,7 +91,7 @@ message Key {
 }
 
 message ListResponse {
-    repeated Key key;
+    repeated Key key = 1;
 }
 
 message AddRequest {
