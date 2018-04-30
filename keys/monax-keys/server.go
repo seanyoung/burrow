@@ -20,23 +20,6 @@ import (
 
 type KeysServer struct{}
 
-func (k *KeysServer) Gen(ctx context.Context, in *keys.GenRequest) (*keys.GenResponse, error) {
-	addr, err := coreKeygen(in.Auth, in.Keytype)
-	if err != nil {
-		return nil, err
-	}
-
-	addrH := strings.ToUpper(hex.EncodeToString(addr))
-	if in.Keyname != "" {
-		err = coreNameAdd(in.Keyname, addrH)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return &keys.GenResponse{Address: addrH}, nil
-}
-
 func StartServer(host, port string) error {
 	ks, err := newKeyStoreAuth()
 	if err != nil {
@@ -101,46 +84,30 @@ func WriteError(w http.ResponseWriter, err error) {
 //------------------------------------------------------------------------
 // handlers
 
-func genHandler(w http.ResponseWriter, r *http.Request) {
-	typ, auth, args, err := typeAuthArgs(r)
+func (k *KeysServer) Gen(ctx context.Context, in *keys.GenRequest) (*keys.GenResponse, error) {
+	addr, err := coreKeygen(in.Auth, in.Keytype)
 	if err != nil {
-		WriteError(w, err)
-		return
+		return nil, err
 	}
 
-	name := args["name"]
-	addr, err := coreKeygen(auth, typ)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	if name != "" {
-		err := coreNameAdd(name, strings.ToUpper(hex.EncodeToString(addr)))
+	addrH := strings.ToUpper(hex.EncodeToString(addr))
+	if in.Keyname != "" {
+		err = coreNameAdd(in.Keyname, addrH)
 		if err != nil {
-			WriteError(w, err)
-			return
+			return nil, err
 		}
 	}
-	WriteResult(w, fmt.Sprintf("%X", addr))
+
+	return &keys.GenResponse{Address: addrH}, nil
 }
 
-func unlockHandler(w http.ResponseWriter, r *http.Request) {
-	_, auth, args, err := typeAuthArgs(r)
+func (k *KeysServer) Unlock(ctx context.Context, in *keys.UnlockRequest) (*keys.Empty, error) {
+	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
-		WriteError(w, err)
-		return
+		return nil, err
 	}
-	addr, name, timeout := args["addr"], args["name"], args["timeout"]
-	addr, err = getNameAddr(name, addr)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	if err := coreUnlock(auth, addr, timeout); err != nil {
-		WriteError(w, err)
-		return
-	}
-	WriteResult(w, fmt.Sprintf("%s unlocked", addr))
+
+	return nil, coreUnlock(in.Auth, addr, fmt.Sprintf("%d", in.Timeout))
 }
 
 func convertMintHandler(w http.ResponseWriter, r *http.Request) {
@@ -167,94 +134,57 @@ func lockHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func pubHandler(w http.ResponseWriter, r *http.Request) {
-	_, _, args, err := typeAuthArgs(r)
+func (k *KeysServer) Pub(ctx context.Context, in *keys.PubRequest) (*keys.PubResponse, error) {
+	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
-		WriteError(w, err)
-		return
+		return nil, err
 	}
-	addr, name := args["addr"], args["name"]
-	addr, err = getNameAddr(name, addr)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
+
 	pub, err := corePub(addr)
 	if err != nil {
-		WriteError(w, err)
-		return
+		return nil, err
 	}
-	WriteResult(w, fmt.Sprintf("%X", pub))
+
+	return &keys.PubResponse{Pub: fmt.Sprintf("%X", pub)}, nil
 }
 
-func signHandler(w http.ResponseWriter, r *http.Request) {
-	_, _, args, err := typeAuthArgs(r)
+func (k *KeysServer) Sign(ctx context.Context, in *keys.SignRequest) (*keys.SignResponse, error) {
+	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
-		WriteError(w, err)
-		return
+		return nil, err
 	}
-	addr, name := args["addr"], args["name"]
-	addr, err = getNameAddr(name, addr)
+
+	sig, err := coreSign(in.Message, addr)
 	if err != nil {
-		WriteError(w, err)
-		return
+		return nil, err
 	}
-	msg := args["msg"]
-	if msg == "" {
-		WriteError(w, fmt.Errorf("must provide a message to sign with the `msg` key"))
-		return
-	}
-	sig, err := coreSign(msg, addr)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	WriteResult(w, fmt.Sprintf("%X", sig))
+
+	return &keys.SignResponse{Signature: fmt.Sprintf("%X", sig)}, nil
 }
 
-func verifyHandler(w http.ResponseWriter, r *http.Request) {
-	typ, _, args, err := typeAuthArgs(r)
-	if err != nil {
-		WriteError(w, err)
-		return
+func (k *KeysServer) Verify(ctx context.Context, in *keys.VerifyRequest) (*keys.Empty, error) {
+	if in.GetPub() == "" {
+		return nil, fmt.Errorf("must provide a pubkey with the `pub` key")
 	}
-	pub, msg, sig := args["pub"], args["msg"], args["sig"]
-	if pub == "" {
-		WriteError(w, fmt.Errorf("must provide a pubkey with the `pub` key"))
-		return
+	if in.GetMessage() == "" {
+		return nil, fmt.Errorf("must provide a message msg with the `msg` key")
 	}
-	if msg == "" {
-		WriteError(w, fmt.Errorf("must provide a message msg with the `msg` key"))
-		return
-	}
-	if sig == "" {
-		WriteError(w, fmt.Errorf("must provide a signature with the `sig` key"))
-		return
+	if in.GetSignature() == "" {
+		return nil, fmt.Errorf("must provide a signature with the `sig` key")
 	}
 
-	res, err := coreVerify(typ, pub, msg, sig)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	WriteResult(w, fmt.Sprintf("%v", res))
+	_, err := coreVerify(in.GetKeytype(), in.GetPub(), in.GetMessage(), in.GetSignature())
+
+	return nil, err
 }
 
-func hashHandler(w http.ResponseWriter, r *http.Request) {
-	typ, _, args, err := typeAuthArgs(r)
+func (k *KeysServer) Hash(ctx context.Context, in *keys.HashRequest) (*keys.HashResponse, error) {
+	hash, err := coreHash(in.GetKeytype(), in.GetMessage(), in.GetHex())
 	if err != nil {
-		WriteError(w, err)
-		return
+		return nil, err
 	}
-	msg := args["msg"]
-	hexD := args["hex"]
 
-	hash, err := coreHash(typ, msg, hexD == "true")
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	WriteResult(w, fmt.Sprintf("%X", hash))
+	return &keys.HashResponse{Hash: fmt.Sprintf("%X", hash)}, nil
 }
 
 func importHandler(w http.ResponseWriter, r *http.Request) {
@@ -335,27 +265,39 @@ func nameLsHandler(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
-func nameRmHandler(w http.ResponseWriter, r *http.Request) {
-	_, _, args, err := typeAuthArgs(r)
+func (k *KeysServer) List(ctx context.Context, in *keys.KeyName) (*keys.ListResponse, error) {
+	names, err := coreNameList()
 	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	name := args["name"]
-	// name, addr := args["name"], args["addr"]
-	// log.Debugf("name rm handler. name (%s). addr (%s)\n", name, addr)
-
-	if name == "" {
-		WriteError(w, fmt.Errorf("please specify a name"))
-		return
+		return nil, err
 	}
 
-	if err := coreNameRm(name); err != nil {
-		WriteError(w, err)
-		return
+	var list []*keys.Key
+
+	for name, addr := range names {
+		list = append(list, &keys.Key{Keyname: name, Address: addr})
 	}
 
-	WriteResult(w, fmt.Sprintf("Removed name (%s)", name))
+	return &keys.ListResponse{Key: list}, nil
+}
+
+func (k *KeysServer) Remove(ctx context.Context, in *keys.KeyName) (*keys.Empty, error) {
+	if in.GetKeyname() == "" {
+		return nil, fmt.Errorf("please specify a name")
+	}
+
+	return nil, coreNameRm(in.GetKeyname())
+}
+
+func (k *KeysServer) Add(ctx context.Context, in *keys.AddRequest) (*keys.Empty, error) {
+	if in.GetKeyname() == "" {
+		return nil, fmt.Errorf("please specify a name")
+	}
+
+	if in.GetAddress() == "" {
+		return nil, fmt.Errorf("please specify an address")
+	}
+
+	return nil, coreNameAdd(in.GetKeyname(), strings.ToUpper(in.GetAddress()))
 }
 
 // convenience function
