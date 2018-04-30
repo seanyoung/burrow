@@ -36,28 +36,6 @@ func StartServer(host, port string) error {
 	grpcServer := grpc.NewServer()
 	keys.RegisterKeysServer(grpcServer, &KeysServer{})
 	return grpcServer.Serve(listen)
-
-	/*
-		mux := http.NewServeMux()
-		mux.HandleFunc("/gen", genHandler)
-		mux.HandleFunc("/pub", pubHandler)
-		mux.HandleFunc("/sign", signHandler)
-		mux.HandleFunc("/verify", verifyHandler)
-		mux.HandleFunc("/hash", hashHandler)
-		mux.HandleFunc("/import", importHandler)
-		mux.HandleFunc("/name", nameHandler)
-		mux.HandleFunc("/name/ls", nameLsHandler)
-		mux.HandleFunc("/name/rm", nameRmHandler)
-		mux.HandleFunc("/unlock", unlockHandler)
-		mux.HandleFunc("/lock", lockHandler)
-		mux.HandleFunc("/mint", convertMintHandler)
-
-		log.Printf("Starting monax-keys server on %s:%s\n", host, port)
-		c := cors.New(cors.Options{
-			AllowedOrigins: []string{"*"}, // TODO: dev
-		})
-		return http.ListenAndServe(host+":"+port, c.Handler(mux))
-	*/
 }
 
 // A request is just a map of args to be json marshalled
@@ -208,61 +186,6 @@ func importHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	WriteResult(w, fmt.Sprintf("%X", addr))
-}
-
-func nameHandler(w http.ResponseWriter, r *http.Request) {
-	_, _, args, err := typeAuthArgs(r)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	name, addr := args["name"], args["addr"]
-
-	// log.Debugf("name handler. name (%s). addr (%s)\n", name, addr)
-
-	if name == "" {
-		WriteError(w, fmt.Errorf("please specify a name"))
-		return
-	}
-
-	if addr == "" {
-		addr, err := coreNameGet(name)
-		if err != nil {
-			WriteError(w, err)
-			return
-		}
-		WriteResult(w, addr)
-	} else {
-		if err := coreNameAdd(name, strings.ToUpper(addr)); err != nil {
-			WriteError(w, err)
-			return
-		}
-		WriteResult(w, fmt.Sprintf("Added name (%s) to address (%s)", name, addr))
-	}
-}
-
-func nameLsHandler(w http.ResponseWriter, r *http.Request) {
-	_, _, _, err := typeAuthArgs(r)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	// name, addr := args["name"], args["addr"]
-	// log.Debugf("name ls handler. name (%s). addr (%s)\n", name, addr)
-
-	names, err := coreNameList()
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-
-	b, err := json.Marshal(names)
-	if err != nil {
-		WriteError(w, err)
-		return
-	}
-	WriteResult(w, string(b))
-	return
 }
 
 func (k *KeysServer) List(ctx context.Context, in *keys.KeyName) (*keys.ListResponse, error) {
