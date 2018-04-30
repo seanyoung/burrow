@@ -1,20 +1,41 @@
 package keys
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
+	"net"
 	"net/http"
 	"strings"
 
-	"github.com/rs/cors"
+	"github.com/hyperledger/burrow/keys"
+	"google.golang.org/grpc"
 )
 
 //------------------------------------------------------------------------
 // all cli commands pass through the http server
 // the server process also maintains the unlocked accounts
+
+type KeysServer struct{}
+
+func (k *KeysServer) Gen(ctx context.Context, in *keys.GenRequest) (*keys.GenResponse, error) {
+	addr, err := coreKeygen(in.Auth, in.Keytype)
+	if err != nil {
+		return nil, err
+	}
+
+	addrH := strings.ToUpper(hex.EncodeToString(addr))
+	if in.Keyname != "" {
+		err = coreNameAdd(in.Keyname, addrH)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return &keys.GenResponse{Address: addrH}, nil
+}
 
 func StartServer(host, port string) error {
 	ks, err := newKeyStoreAuth()
@@ -24,25 +45,36 @@ func StartServer(host, port string) error {
 
 	AccountManager = NewManager(ks)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/gen", genHandler)
-	mux.HandleFunc("/pub", pubHandler)
-	mux.HandleFunc("/sign", signHandler)
-	mux.HandleFunc("/verify", verifyHandler)
-	mux.HandleFunc("/hash", hashHandler)
-	mux.HandleFunc("/import", importHandler)
-	mux.HandleFunc("/name", nameHandler)
-	mux.HandleFunc("/name/ls", nameLsHandler)
-	mux.HandleFunc("/name/rm", nameRmHandler)
-	mux.HandleFunc("/unlock", unlockHandler)
-	mux.HandleFunc("/lock", lockHandler)
-	mux.HandleFunc("/mint", convertMintHandler)
+	listen, err := net.Listen("tcp", host+":"+port)
+	if err != nil {
+		return err
+	}
 
-	log.Printf("Starting monax-keys server on %s:%s\n", host, port)
-	c := cors.New(cors.Options{
-		AllowedOrigins: []string{"*"}, // TODO: dev
-	})
-	return http.ListenAndServe(host+":"+port, c.Handler(mux))
+	grpcServer := grpc.NewServer()
+	keys.RegisterKeysServer(grpcServer, &KeysServer{})
+	return grpcServer.Serve(listen)
+
+	/*
+		mux := http.NewServeMux()
+		mux.HandleFunc("/gen", genHandler)
+		mux.HandleFunc("/pub", pubHandler)
+		mux.HandleFunc("/sign", signHandler)
+		mux.HandleFunc("/verify", verifyHandler)
+		mux.HandleFunc("/hash", hashHandler)
+		mux.HandleFunc("/import", importHandler)
+		mux.HandleFunc("/name", nameHandler)
+		mux.HandleFunc("/name/ls", nameLsHandler)
+		mux.HandleFunc("/name/rm", nameRmHandler)
+		mux.HandleFunc("/unlock", unlockHandler)
+		mux.HandleFunc("/lock", lockHandler)
+		mux.HandleFunc("/mint", convertMintHandler)
+
+		log.Printf("Starting monax-keys server on %s:%s\n", host, port)
+		c := cors.New(cors.Options{
+			AllowedOrigins: []string{"*"}, // TODO: dev
+		})
+		return http.ListenAndServe(host+":"+port, c.Handler(mux))
+	*/
 }
 
 // A request is just a map of args to be json marshalled
