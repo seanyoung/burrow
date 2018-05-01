@@ -13,7 +13,7 @@ import (
 	"github.com/hyperledger/burrow/execution"
 	"github.com/hyperledger/burrow/genesis"
 	"github.com/hyperledger/burrow/genesis/spec"
-	"github.com/hyperledger/burrow/keys/monax-keys"
+	"github.com/hyperledger/burrow/keys"
 	"github.com/hyperledger/burrow/logging"
 	logging_config "github.com/hyperledger/burrow/logging/config"
 	"github.com/hyperledger/burrow/logging/config/presets"
@@ -295,7 +295,7 @@ func main() {
 				keyName := cmd.StringOpt("name", "", "name of key to use")
 
 				cmd.Action = func() {
-					fmt.Printf("NoPassword: %v\n", keys.NoPassword.values)
+					fmt.Printf("NoPassword: %v\n", keys.NoPassword)
 					fmt.Printf("KeyName: %v\n", *keyName)
 					keys.CliKeygen(*keyType, *keyName)
 				}

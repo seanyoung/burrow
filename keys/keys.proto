@@ -10,12 +10,12 @@ service Keys {
     rpc Sign(SignRequest) returns (SignResponse);
     rpc Verify(VerifyRequest) returns (Empty);
     rpc Hash(HashRequest) returns (HashResponse);
-    rpc Remove(KeyName) returns (Empty);
-    rpc List(KeyName) returns (ListResponse);
+    rpc Remove(Name) returns (Empty);
+    rpc List(Name) returns (ListResponse);
     rpc Add(AddRequest) returns (Empty);
 }
 
-message KeyName {
+message Name {
     string keyname = 1;
 }
 

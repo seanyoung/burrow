@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/hyperledger/burrow/keys"
 	"google.golang.org/grpc"
 )
 
@@ -18,7 +17,7 @@ import (
 // all cli commands pass through the http server
 // the server process also maintains the unlocked accounts
 
-type KeysServer struct{}
+type server struct{}
 
 func StartServer(host, port string) error {
 	ks, err := newKeyStoreAuth()
@@ -34,18 +33,12 @@ func StartServer(host, port string) error {
 	}
 
 	grpcServer := grpc.NewServer()
-	keys.RegisterKeysServer(grpcServer, &KeysServer{})
+	RegisterKeysServer(grpcServer, &server{})
 	return grpcServer.Serve(listen)
 }
 
 // A request is just a map of args to be json marshalled
 type HTTPRequest map[string]string
-
-// dead simple response struct
-type HTTPResponse struct {
-	Response string
-	Error    string
-}
 
 func WriteResult(w http.ResponseWriter, result string) {
 	resp := HTTPResponse{result, ""}
@@ -62,7 +55,7 @@ func WriteError(w http.ResponseWriter, err error) {
 //------------------------------------------------------------------------
 // handlers
 
-func (k *KeysServer) Gen(ctx context.Context, in *keys.GenRequest) (*keys.GenResponse, error) {
+func (k *server) Gen(ctx context.Context, in *GenRequest) (*GenResponse, error) {
 	addr, err := coreKeygen(in.Auth, in.Keytype)
 	if err != nil {
 		return nil, err
@@ -76,10 +69,10 @@ func (k *KeysServer) Gen(ctx context.Context, in *keys.GenRequest) (*keys.GenRes
 		}
 	}
 
-	return &keys.GenResponse{Address: addrH}, nil
+	return &GenResponse{Address: addrH}, nil
 }
 
-func (k *KeysServer) Unlock(ctx context.Context, in *keys.UnlockRequest) (*keys.Empty, error) {
+func (k *server) Unlock(ctx context.Context, in *UnlockRequest) (*Empty, error) {
 	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
 		return nil, err
@@ -112,7 +105,7 @@ func lockHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func (k *KeysServer) Pub(ctx context.Context, in *keys.PubRequest) (*keys.PubResponse, error) {
+func (k *server) Pub(ctx context.Context, in *PubRequest) (*PubResponse, error) {
 	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
 		return nil, err
@@ -123,10 +116,10 @@ func (k *KeysServer) Pub(ctx context.Context, in *keys.PubRequest) (*keys.PubRes
 		return nil, err
 	}
 
-	return &keys.PubResponse{Pub: fmt.Sprintf("%X", pub)}, nil
+	return &PubResponse{Pub: fmt.Sprintf("%X", pub)}, nil
 }
 
-func (k *KeysServer) Sign(ctx context.Context, in *keys.SignRequest) (*keys.SignResponse, error) {
+func (k *server) Sign(ctx context.Context, in *SignRequest) (*SignResponse, error) {
 	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
 		return nil, err
@@ -137,10 +130,10 @@ func (k *KeysServer) Sign(ctx context.Context, in *keys.SignRequest) (*keys.Sign
 		return nil, err
 	}
 
-	return &keys.SignResponse{Signature: fmt.Sprintf("%X", sig)}, nil
+	return &SignResponse{Signature: fmt.Sprintf("%X", sig)}, nil
 }
 
-func (k *KeysServer) Verify(ctx context.Context, in *keys.VerifyRequest) (*keys.Empty, error) {
+func (k *server) Verify(ctx context.Context, in *VerifyRequest) (*Empty, error) {
 	if in.GetPub() == "" {
 		return nil, fmt.Errorf("must provide a pubkey with the `pub` key")
 	}
@@ -156,13 +149,13 @@ func (k *KeysServer) Verify(ctx context.Context, in *keys.VerifyRequest) (*keys.
 	return nil, err
 }
 
-func (k *KeysServer) Hash(ctx context.Context, in *keys.HashRequest) (*keys.HashResponse, error) {
+func (k *server) Hash(ctx context.Context, in *HashRequest) (*HashResponse, error) {
 	hash, err := coreHash(in.GetKeytype(), in.GetMessage(), in.GetHex())
 	if err != nil {
 		return nil, err
 	}
 
-	return &keys.HashResponse{Hash: fmt.Sprintf("%X", hash)}, nil
+	return &HashResponse{Hash: fmt.Sprintf("%X", hash)}, nil
 }
 
 func importHandler(w http.ResponseWriter, r *http.Request) {
@@ -188,22 +181,22 @@ func importHandler(w http.ResponseWriter, r *http.Request) {
 	WriteResult(w, fmt.Sprintf("%X", addr))
 }
 
-func (k *KeysServer) List(ctx context.Context, in *keys.KeyName) (*keys.ListResponse, error) {
+func (k *server) List(ctx context.Context, in *Name) (*ListResponse, error) {
 	names, err := coreNameList()
 	if err != nil {
 		return nil, err
 	}
 
-	var list []*keys.Key
+	var list []*Key
 
 	for name, addr := range names {
-		list = append(list, &keys.Key{Keyname: name, Address: addr})
+		list = append(list, &Key{Keyname: name, Address: addr})
 	}
 
-	return &keys.ListResponse{Key: list}, nil
+	return &ListResponse{Key: list}, nil
 }
 
-func (k *KeysServer) Remove(ctx context.Context, in *keys.KeyName) (*keys.Empty, error) {
+func (k *server) Remove(ctx context.Context, in *Name) (*Empty, error) {
 	if in.GetKeyname() == "" {
 		return nil, fmt.Errorf("please specify a name")
 	}
@@ -211,7 +204,7 @@ func (k *KeysServer) Remove(ctx context.Context, in *keys.KeyName) (*keys.Empty,
 	return nil, coreNameRm(in.GetKeyname())
 }
 
-func (k *KeysServer) Add(ctx context.Context, in *keys.AddRequest) (*keys.Empty, error) {
+func (k *server) Add(ctx context.Context, in *AddRequest) (*Empty, error) {
 	if in.GetKeyname() == "" {
 		return nil, fmt.Errorf("please specify a name")
 	}
