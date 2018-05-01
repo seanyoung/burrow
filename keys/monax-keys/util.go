@@ -87,7 +87,7 @@ func requestResponse(req *http.Request) (string, string, error) {
 
 // Call the http server
 func Call(method string, args map[string]string) (string, error) {
-	url := fmt.Sprintf("%s/%s", DaemonAddr, method)
+	url := fmt.Sprintf("%s:%s/%s", KeyHost, KeyPort, method)
 	b, err := json.Marshal(args)
 	if err != nil {
 		return "", fmt.Errorf("Error marshaling args map: %v", err)
