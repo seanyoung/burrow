@@ -9,7 +9,6 @@ import (
 	//"github.com/howeyc/gopass"
 
 	"github.com/hyperledger/burrow/keys/common"
-
 )
 
 var (
@@ -208,4 +207,3 @@ func checkMakeDataDir(dir string) error {
 func LogToChannel(answer []byte) {
 	fmt.Fprintln(os.Stdout, string(answer))
 }
-

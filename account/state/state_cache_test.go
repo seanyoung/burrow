@@ -7,6 +7,7 @@ import (
 
 	acm "github.com/hyperledger/burrow/account"
 	"github.com/hyperledger/burrow/binary"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/hyperledger/burrow/execution/evm/asm"
 	"github.com/hyperledger/burrow/permission"
 	"github.com/stretchr/testify/assert"
@@ -137,7 +138,7 @@ func testAccounts() *MemoryState {
 	return cache
 }
 
-func addressOf(secret string) acm.Address {
+func addressOf(secret string) crypto.Address {
 	return acm.NewConcreteAccountFromSecret(secret).Address
 }
 

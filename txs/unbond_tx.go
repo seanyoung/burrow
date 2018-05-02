@@ -5,19 +5,20 @@ import (
 	"io"
 
 	acm "github.com/hyperledger/burrow/account"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/tendermint/go-wire"
 )
 
 type UnbondTx struct {
-	Address   acm.Address
+	Address   crypto.Address
 	Height    int
-	Signature acm.Signature
+	Signature crypto.Signature
 	txHashMemoizer
 }
 
 var _ Tx = &UnbondTx{}
 
-func NewUnbondTx(addr acm.Address, height int) *UnbondTx {
+func NewUnbondTx(addr crypto.Address, height int) *UnbondTx {
 	return &UnbondTx{
 		Address: addr,
 		Height:  height,

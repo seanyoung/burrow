@@ -48,7 +48,7 @@ func (mock *MockNodeClient) DeriveWebsocketClient() (nodeWsClient NodeWebsocketC
 	return nil, nil
 }
 
-func (mock *MockNodeClient) GetAccount(address acm.Address) (acm.Account, error) {
+func (mock *MockNodeClient) GetAccount(address crypto.Address) (acm.Account, error) {
 	// make zero account
 	return acm.FromAddressable(acm.GeneratePrivateAccountFromSecret("mock-node-client-account")), nil
 }
@@ -70,7 +70,7 @@ func (mock *MockNodeClient) Status() (ChainId []byte, ValidatorPublicKey []byte,
 }
 
 // QueryContract executes the contract code at address with the given data
-func (mock *MockNodeClient) QueryContract(callerAddress, calleeAddress acm.Address,
+func (mock *MockNodeClient) QueryContract(callerAddress, calleeAddress crypto.Address,
 	data []byte) (ret []byte, gasUsed uint64, err error) {
 
 	// return zero
@@ -79,18 +79,18 @@ func (mock *MockNodeClient) QueryContract(callerAddress, calleeAddress acm.Addre
 }
 
 // QueryContractCode executes the contract code at address with the given data but with provided code
-func (mock *MockNodeClient) QueryContractCode(address acm.Address, code,
+func (mock *MockNodeClient) QueryContractCode(address crypto.Address, code,
 	data []byte) (ret []byte, gasUsed uint64, err error) {
 	// return zero
 	ret = make([]byte, 0)
 	return
 }
 
-func (mock *MockNodeClient) DumpStorage(address acm.Address) (storage *rpc.ResultDumpStorage, err error) {
+func (mock *MockNodeClient) DumpStorage(address crypto.Address) (storage *rpc.ResultDumpStorage, err error) {
 	return
 }
 
-func (mock *MockNodeClient) GetName(name string) (owner acm.Address, data string, expirationBlock uint64, err error) {
+func (mock *MockNodeClient) GetName(name string) (owner crypto.Address, data string, expirationBlock uint64, err error) {
 	return
 }
 

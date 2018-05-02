@@ -6,12 +6,13 @@ import (
 
 	acm "github.com/hyperledger/burrow/account"
 	"github.com/hyperledger/burrow/account/state"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/tendermint/go-wire"
 )
 
 type BondTx struct {
-	PubKey    acm.PublicKey
-	Signature acm.Signature
+	PubKey    crypto.PublicKey
+	Signature crypto.Signature
 	Inputs    []*TxInput
 	UnbondTo  []*TxOutput
 	txHashMemoizer
@@ -19,7 +20,7 @@ type BondTx struct {
 
 var _ Tx = &BondTx{}
 
-func NewBondTx(pubkey acm.PublicKey) (*BondTx, error) {
+func NewBondTx(pubkey crypto.PublicKey) (*BondTx, error) {
 	return &BondTx{
 		PubKey:   pubkey,
 		Inputs:   []*TxInput{},
@@ -60,7 +61,7 @@ func (tx *BondTx) Hash(chainID string) []byte {
 	return tx.txHashMemoizer.hash(chainID, tx)
 }
 
-func (tx *BondTx) AddInput(st state.AccountGetter, pubkey acm.PublicKey, amt uint64) error {
+func (tx *BondTx) AddInput(st state.AccountGetter, pubkey crypto.PublicKey, amt uint64) error {
 	addr := pubkey.Address()
 	acc, err := st.GetAccount(addr)
 	if err != nil {
@@ -72,7 +73,7 @@ func (tx *BondTx) AddInput(st state.AccountGetter, pubkey acm.PublicKey, amt uin
 	return tx.AddInputWithSequence(pubkey, amt, acc.Sequence()+uint64(1))
 }
 
-func (tx *BondTx) AddInputWithSequence(pubkey acm.PublicKey, amt uint64, sequence uint64) error {
+func (tx *BondTx) AddInputWithSequence(pubkey crypto.PublicKey, amt uint64, sequence uint64) error {
 	tx.Inputs = append(tx.Inputs, &TxInput{
 		Address:   pubkey.Address(),
 		Amount:    amt,
@@ -82,7 +83,7 @@ func (tx *BondTx) AddInputWithSequence(pubkey acm.PublicKey, amt uint64, sequenc
 	return nil
 }
 
-func (tx *BondTx) AddOutput(addr acm.Address, amt uint64) error {
+func (tx *BondTx) AddOutput(addr crypto.Address, amt uint64) error {
 	tx.UnbondTo = append(tx.UnbondTo, &TxOutput{
 		Address: addr,
 		Amount:  amt,

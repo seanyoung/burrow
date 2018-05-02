@@ -16,8 +16,8 @@ import (
 
 	"github.com/hyperledger/burrow/keys/crypto"
 
-	"github.com/tendermint/go-wire"
 	tmint_crypto "github.com/hyperledger/burrow/keys/crypto/helpers"
+	"github.com/tendermint/go-wire"
 	"golang.org/x/crypto/ripemd160"
 )
 

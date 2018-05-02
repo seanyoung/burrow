@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	acm "github.com/hyperledger/burrow/account"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/hyperledger/burrow/genesis"
 	"github.com/hyperledger/burrow/keys"
 	"github.com/hyperledger/burrow/permission"
@@ -33,9 +33,9 @@ type GenesisSpec struct {
 
 type TemplateAccount struct {
 	// Address  is convenient to have in file for reference, but otherwise ignored since derived from PublicKey
-	Address   *acm.Address   `json:",omitempty"`
-	PublicKey *acm.PublicKey `json:",omitempty"`
-	Amount    *uint64        `json:",omitempty"`
+	Address   *crypto.Address   `json:",omitempty"`
+	PublicKey *crypto.PublicKey `json:",omitempty"`
+	Amount    *uint64           `json:",omitempty"`
 	// If any bonded amount then this account is also a Validator
 	AmountBonded *uint64  `json:",omitempty"`
 	Name         string   `json:",omitempty"`
@@ -110,7 +110,7 @@ func (ta TemplateAccount) Account(keyClient keys.KeyClient, index int) (*genesis
 
 // Adds a public key and address to the template. If PublicKey will try to fetch it by Address.
 // If both PublicKey and Address are not set will use the keyClient to generate a new keypair
-func (ta TemplateAccount) RealisePubKeyAndAddress(keyClient keys.KeyClient) (pubKey acm.PublicKey, address acm.Address, err error) {
+func (ta TemplateAccount) RealisePubKeyAndAddress(keyClient keys.KeyClient) (pubKey crypto.PublicKey, address crypto.Address, err error) {
 	if ta.PublicKey == nil {
 		if ta.Address == nil {
 			// If neither PublicKey or Address set then generate a new one

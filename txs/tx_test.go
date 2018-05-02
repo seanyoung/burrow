@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 
 	acm "github.com/hyperledger/burrow/account"
+	"github.com/hyperledger/burrow/crypto"
 	ptypes "github.com/hyperledger/burrow/permission"
 	"github.com/hyperledger/burrow/permission/snatives"
 	"github.com/stretchr/testify/assert"
@@ -29,7 +30,7 @@ import (
 
 var chainID = "myChainID"
 
-func makeAddress(str string) (address acm.Address) {
+func makeAddress(str string) (address crypto.Address) {
 	copy(address[:], ([]byte)(str))
 	return
 }
@@ -219,7 +220,7 @@ func TestTxWrapper_MarshalJSON(t *testing.T) {
 }
 
 func TestNewPermissionsTxWithSequence(t *testing.T) {
-	privateKey := acm.PrivateKeyFromSecret("Shhh...")
+	privateKey := crypto.PrivateKeyFromSecret("Shhh...")
 
 	args := snatives.SetBaseArgs(privateKey.PublicKey().Address(), ptypes.HasRole, true)
 	permTx := NewPermissionsTxWithSequence(privateKey.PublicKey(), args, 1)

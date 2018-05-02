@@ -2,7 +2,8 @@ package validator
 
 import (
 	acm "github.com/hyperledger/burrow/account"
-	"github.com/tendermint/go-crypto"
+	crypto "github.com/hyperledger/burrow/crypto"
+	tm_crypto "github.com/tendermint/go-crypto"
 	tm_types "github.com/tendermint/tendermint/types"
 	val_types "github.com/tendermint/tendermint/types/priv_validator"
 )
@@ -17,7 +18,7 @@ var _ tm_types.PrivValidator = &privValidatorMemory{}
 
 // Create a PrivValidator with in-memory state that takes an addressable representing the validator identity
 // and a signer providing private signing for that identity.
-func NewPrivValidatorMemory(addressable acm.Addressable, signer acm.Signer) *privValidatorMemory {
+func NewPrivValidatorMemory(addressable acm.Addressable, signer crypto.Signer) *privValidatorMemory {
 	return &privValidatorMemory{
 		Addressable:    addressable,
 		Signer:         asTendermintSigner(signer),
@@ -29,7 +30,7 @@ func (pvm *privValidatorMemory) GetAddress() tm_types.Address {
 	return pvm.Address().Bytes()
 }
 
-func (pvm *privValidatorMemory) GetPubKey() crypto.PubKey {
+func (pvm *privValidatorMemory) GetPubKey() tm_crypto.PubKey {
 	return pvm.PublicKey().PubKey
 }
 
@@ -48,18 +49,18 @@ func (pvm *privValidatorMemory) SignHeartbeat(chainID string, heartbeat *tm_type
 	return err
 }
 
-func asTendermintSigner(signer acm.Signer) tm_types.Signer {
+func asTendermintSigner(signer crypto.Signer) tm_types.Signer {
 	return tendermintSigner{Signer: signer}
 }
 
 type tendermintSigner struct {
-	acm.Signer
+	crypto.Signer
 }
 
-func (tms tendermintSigner) Sign(msg []byte) (crypto.Signature, error) {
+func (tms tendermintSigner) Sign(msg []byte) (tm_crypto.Signature, error) {
 	sig, err := tms.Signer.Sign(msg)
 	if err != nil {
-		return crypto.Signature{}, err
+		return tm_crypto.Signature{}, err
 	}
 	return sig.GoCryptoSignature(), nil
 }
