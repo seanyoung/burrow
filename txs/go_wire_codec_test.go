@@ -3,14 +3,14 @@ package txs
 import (
 	"testing"
 
-	acm "github.com/hyperledger/burrow/account"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestEncodeTxDecodeTx(t *testing.T) {
 	gwc := NewGoWireCodec()
-	inputAddress := acm.Address{1, 2, 3, 4, 5}
-	outputAddress := acm.Address{5, 4, 3, 2, 1}
+	inputAddress := crypto.Address{1, 2, 3, 4, 5}
+	outputAddress := crypto.Address{5, 4, 3, 2, 1}
 	amount := uint64(2)
 	sequence := uint64(3)
 	tx := &SendTx{
@@ -35,7 +35,7 @@ func TestEncodeTxDecodeTx(t *testing.T) {
 
 func TestEncodeTxDecodeTx_CallTx(t *testing.T) {
 	gwc := NewGoWireCodec()
-	inputAddress := acm.Address{1, 2, 3, 4, 5}
+	inputAddress := crypto.Address{1, 2, 3, 4, 5}
 	amount := uint64(2)
 	sequence := uint64(3)
 	tx := &CallTx{

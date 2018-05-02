@@ -24,10 +24,11 @@ import (
 	"encoding/base64"
 
 	acm "github.com/hyperledger/burrow/account"
+	"github.com/hyperledger/burrow/crypto"
 	. "github.com/hyperledger/burrow/keys"
 	"github.com/pkg/errors"
 	"github.com/tendermint/ed25519"
-	crypto "github.com/tendermint/go-crypto"
+	tm_crypto "github.com/tendermint/go-crypto"
 	"github.com/tmthrgd/go-hex"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -38,7 +39,7 @@ import (
 // Simple ed25519 key structure for mock purposes with ripemd160 address
 type MockKey struct {
 	Name       string
-	Address    acm.Address
+	Address    crypto.Address
 	PublicKey  []byte
 	PrivateKey []byte
 }
@@ -80,7 +81,7 @@ func newMockKey(name string) (*MockKey, error) {
 	typedPublicKeyBytes := append([]byte{0x01}, key.PublicKey...)
 	hasher := ripemd160.New()
 	hasher.Write(typedPublicKeyBytes)
-	key.Address, err = acm.AddressFromBytes(hasher.Sum(nil))
+	key.Address, err = crypto.AddressFromBytes(hasher.Sum(nil))
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +92,7 @@ func newMockKey(name string) (*MockKey, error) {
 }
 
 func mockKeyFromPrivateAccount(privateAccount acm.PrivateAccount) *MockKey {
-	_, ok := privateAccount.PrivateKey().Unwrap().(crypto.PrivKeyEd25519)
+	_, ok := privateAccount.PrivateKey().Unwrap().(tm_crypto.PrivKeyEd25519)
 	if !ok {
 		panic(fmt.Errorf("mock key client only supports ed25519 private keys at present"))
 	}
@@ -104,10 +105,10 @@ func mockKeyFromPrivateAccount(privateAccount acm.PrivateAccount) *MockKey {
 	return key
 }
 
-func (mockKey *MockKey) Sign(message []byte) (acm.Signature, error) {
+func (mockKey *MockKey) Sign(message []byte) (crypto.Signature, error) {
 	var privateKey [ed25519.PrivateKeySize]byte
 	copy(privateKey[:], mockKey.PrivateKey)
-	return acm.SignatureFromBytes(ed25519.Sign(&privateKey, message)[:])
+	return crypto.SignatureFromBytes(ed25519.Sign(&privateKey, message)[:])
 }
 
 func (mockKey *MockKey) PrivateKeyBase64() string {
@@ -133,12 +134,12 @@ func (mockKey *MockKey) PublicKeyHex() string {
 var _ KeyClient = (*MockKeyClient)(nil)
 
 type MockKeyClient struct {
-	knownKeys map[acm.Address]*MockKey
+	knownKeys map[crypto.Address]*MockKey
 }
 
 func NewMockKeyClient(privateAccounts ...acm.PrivateAccount) *MockKeyClient {
 	client := &MockKeyClient{
-		knownKeys: make(map[acm.Address]*MockKey),
+		knownKeys: make(map[crypto.Address]*MockKey),
 	}
 	for _, pa := range privateAccounts {
 		client.knownKeys[pa.Address()] = mockKeyFromPrivateAccount(pa)
@@ -146,7 +147,7 @@ func NewMockKeyClient(privateAccounts ...acm.PrivateAccount) *MockKeyClient {
 	return client
 }
 
-func (mkc *MockKeyClient) NewKey(name string) acm.Address {
+func (mkc *MockKeyClient) NewKey(name string) crypto.Address {
 	// Only tests ED25519 curve and ripemd160.
 	key, err := newMockKey(name)
 	if err != nil {
@@ -156,25 +157,25 @@ func (mkc *MockKeyClient) NewKey(name string) acm.Address {
 	return key.Address
 }
 
-func (mkc *MockKeyClient) Sign(signAddress acm.Address, message []byte) (acm.Signature, error) {
+func (mkc *MockKeyClient) Sign(signAddress crypto.Address, message []byte) (crypto.Signature, error) {
 	key := mkc.knownKeys[signAddress]
 	if key == nil {
-		return acm.Signature{}, fmt.Errorf("Unknown address (%s)", signAddress)
+		return crypto.Signature{}, fmt.Errorf("Unknown address (%s)", signAddress)
 	}
 	return key.Sign(message)
 }
 
-func (mkc *MockKeyClient) PublicKey(address acm.Address) (acm.PublicKey, error) {
+func (mkc *MockKeyClient) PublicKey(address crypto.Address) (crypto.PublicKey, error) {
 	key := mkc.knownKeys[address]
 	if key == nil {
-		return acm.PublicKey{}, fmt.Errorf("Unknown address (%s)", address)
+		return crypto.PublicKey{}, fmt.Errorf("Unknown address (%s)", address)
 	}
-	pubKeyEd25519 := crypto.PubKeyEd25519{}
+	pubKeyEd25519 := tm_crypto.PubKeyEd25519{}
 	copy(pubKeyEd25519[:], key.PublicKey)
-	return acm.PublicKeyFromGoCryptoPubKey(pubKeyEd25519.Wrap())
+	return crypto.PublicKeyFromGoCryptoPubKey(pubKeyEd25519.Wrap())
 }
 
-func (mkc *MockKeyClient) Generate(keyName string, keyType KeyType) (acm.Address, error) {
+func (mkc *MockKeyClient) Generate(keyName string, keyType KeyType) (crypto.Address, error) {
 	return mkc.NewKey(keyName), nil
 }
 

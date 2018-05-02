@@ -21,11 +21,12 @@ import (
 
 	"fmt"
 
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/hyperledger/burrow/permission"
 	"github.com/hyperledger/burrow/permission/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/go-crypto"
+	tm_crypto "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 )
 
@@ -36,7 +37,7 @@ func TestAddress(t *testing.T) {
 		1, 2, 3, 4, 5,
 		1, 2, 3, 4, 5,
 	}
-	addr, err := AddressFromBytes(bs)
+	addr, err := crypto.AddressFromBytes(bs)
 	assert.NoError(t, err)
 	word256 := addr.Word256()
 	leadingZeroes := []byte{
@@ -45,7 +46,7 @@ func TestAddress(t *testing.T) {
 		0, 0, 0, 0,
 	}
 	assert.Equal(t, leadingZeroes, word256[:12])
-	addrFromWord256 := AddressFromWord256(word256)
+	addrFromWord256 := crypto.AddressFromWord256(word256)
 	assert.Equal(t, bs, addrFromWord256[:])
 	assert.Equal(t, addr, addrFromWord256)
 }
@@ -118,7 +119,7 @@ func TestMarshalJSON(t *testing.T) {
 	acc := concreteAcc.Account()
 	bs, err := json.Marshal(acc)
 
-	pubKeyEd25519 := concreteAcc.PublicKey.PubKey.Unwrap().(crypto.PubKeyEd25519)
+	pubKeyEd25519 := concreteAcc.PublicKey.PubKey.Unwrap().(tm_crypto.PubKeyEd25519)
 	expected := fmt.Sprintf(`{"Address":"%s","PublicKey":{"type":"ed25519","data":"%X"},`+
 		`"Sequence":0,"Balance":0,"Code":"3C172D","StorageRoot":"",`+
 		`"Permissions":{"Base":{"Perms":0,"SetBit":0},"Roles":[]}}`,

@@ -1,4 +1,4 @@
-package account
+package crypto
 
 import (
 	"bytes"
@@ -21,6 +21,22 @@ type Signer interface {
 // PublicKey
 type PublicKey struct {
 	crypto.PubKey `json:"unwrap"`
+}
+
+// Signable is an interface for all signable things.
+// It typically removes signatures before serializing.
+type Signable interface {
+	WriteSignBytes(chainID string, w io.Writer, n *int, err *error)
+}
+
+// SignBytes is a convenience method for getting the bytes to sign of a Signable.
+func SignBytes(chainID string, o Signable) []byte {
+	buf, n, err := new(bytes.Buffer), new(int), new(error)
+	o.WriteSignBytes(chainID, buf, n, err)
+	if *err != nil {
+		panic(fmt.Sprintf("could not write sign bytes for a signable: %s", *err))
+	}
+	return buf.Bytes()
 }
 
 func PublicKeyFromGoCryptoPubKey(pubKey crypto.PubKey) (PublicKey, error) {
@@ -156,6 +172,14 @@ func EnsureEd25519PrivateKeyCorrect(candidatePrivateKey ed25519.PrivateKey) erro
 			candidatePrivateKey, candidatePrivateKey, derivedPrivateKey)
 	}
 	return nil
+}
+
+func ChainSign(signer Signer, chainID string, o Signable) (Signature, error) {
+	sig, err := signer.Sign(SignBytes(chainID, o))
+	if err != nil {
+		return Signature{}, err
+	}
+	return sig, nil
 }
 
 func (pk PrivateKey) PublicKey() PublicKey {

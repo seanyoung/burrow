@@ -7,9 +7,9 @@ import (
 	"os"
 	"strings"
 
-	acm "github.com/hyperledger/burrow/account"
 	"github.com/hyperledger/burrow/config"
 	"github.com/hyperledger/burrow/config/source"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/hyperledger/burrow/execution"
 	"github.com/hyperledger/burrow/genesis"
 	"github.com/hyperledger/burrow/genesis/spec"
@@ -94,7 +94,7 @@ func burrow() *cli.Cli {
 
 				// Which validator am I?
 				if *validatorAddressOpt != "" {
-					address, err := acm.AddressFromHexString(*validatorAddressOpt)
+					address, err := crypto.AddressFromHexString(*validatorAddressOpt)
 					if err != nil {
 						fatalf("could not read address for validator in '%s'", *validatorAddressOpt)
 					}

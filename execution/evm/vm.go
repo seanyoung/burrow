@@ -25,6 +25,7 @@ import (
 	acm "github.com/hyperledger/burrow/account"
 	"github.com/hyperledger/burrow/account/state"
 	. "github.com/hyperledger/burrow/binary"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/hyperledger/burrow/event"
 	. "github.com/hyperledger/burrow/execution/evm/asm"
 	"github.com/hyperledger/burrow/execution/evm/events"
@@ -66,8 +67,8 @@ func (err ErrPermission) Error() string {
 
 type ErrNestedCall struct {
 	NestedError error
-	Caller      acm.Address
-	Callee      acm.Address
+	Caller      crypto.Address
+	Callee      crypto.Address
 	StackDepth  int
 }
 
@@ -106,7 +107,7 @@ type VM struct {
 	stateWriter      state.Writer
 	memoryProvider   func() Memory
 	params           Params
-	origin           acm.Address
+	origin           crypto.Address
 	txHash           []byte
 	stackDepth       int
 	nestedCallErrors []ErrNestedCall
@@ -116,7 +117,7 @@ type VM struct {
 	dumpTokens       bool
 }
 
-func NewVM(stateWriter state.Writer, params Params, origin acm.Address, txid []byte,
+func NewVM(stateWriter state.Writer, params Params, origin crypto.Address, txid []byte,
 	logger *logging.Logger, options ...func(*VM)) *VM {
 	vm := &VM{
 		stateWriter:    stateWriter,
@@ -155,7 +156,7 @@ func HasPermission(stateWriter state.Writer, acc acm.Account, perm ptypes.PermFl
 	return value
 }
 
-func (vm *VM) fireCallEvent(exception *string, output *[]byte, callerAddress, calleeAddress acm.Address, input []byte, value uint64, gas *uint64) {
+func (vm *VM) fireCallEvent(exception *string, output *[]byte, callerAddress, calleeAddress crypto.Address, input []byte, value uint64, gas *uint64) {
 	// fire the post call event (including exception if applicable)
 	if vm.publisher != nil {
 		events.PublishAccountCall(vm.publisher, calleeAddress, &events.EventDataCall{
@@ -516,7 +517,7 @@ func (vm *VM) call(caller acm.Account, callee acm.MutableAccount, code, input []
 			if useGasNegative(gas, GasGetAccount, &err) {
 				return nil, err
 			}
-			acc, errAcc := vm.stateWriter.GetAccount(acm.AddressFromWord256(addr))
+			acc, errAcc := vm.stateWriter.GetAccount(crypto.AddressFromWord256(addr))
 			if errAcc != nil {
 				return nil, firstErr(err, errAcc)
 			}
@@ -612,7 +613,7 @@ func (vm *VM) call(caller acm.Account, callee acm.MutableAccount, code, input []
 			if useGasNegative(gas, GasGetAccount, &err) {
 				return nil, err
 			}
-			acc, errAcc := vm.stateWriter.GetAccount(acm.AddressFromWord256(addr))
+			acc, errAcc := vm.stateWriter.GetAccount(crypto.AddressFromWord256(addr))
 			if errAcc != nil {
 				return nil, firstErr(err, errAcc)
 			}
@@ -633,7 +634,7 @@ func (vm *VM) call(caller acm.Account, callee acm.MutableAccount, code, input []
 			if useGasNegative(gas, GasGetAccount, &err) {
 				return nil, err
 			}
-			acc, errAcc := vm.stateWriter.GetAccount(acm.AddressFromWord256(addr))
+			acc, errAcc := vm.stateWriter.GetAccount(crypto.AddressFromWord256(addr))
 			if errAcc != nil {
 				return nil, firstErr(err, errAcc)
 			}
@@ -935,13 +936,13 @@ func (vm *VM) call(caller acm.Account, callee acm.MutableAccount, code, input []
 					exception = callErr.Error()
 				}
 				// NOTE: these fire call go_events and not particular go_events for eg name reg or permissions
-				vm.fireCallEvent(&exception, &ret, callee.Address(), acm.AddressFromWord256(addr), args, value, &gasLimit)
+				vm.fireCallEvent(&exception, &ret, callee.Address(), crypto.AddressFromWord256(addr), args, value, &gasLimit)
 			} else {
 				// EVM contract
 				if useGasNegative(gas, GasGetAccount, &callErr) {
 					return nil, callErr
 				}
-				acc, errAcc := state.GetMutableAccount(vm.stateWriter, acm.AddressFromWord256(addr))
+				acc, errAcc := state.GetMutableAccount(vm.stateWriter, crypto.AddressFromWord256(addr))
 				if errAcc != nil {
 					return nil, firstErr(callErr, errAcc)
 				}
@@ -965,7 +966,7 @@ func (vm *VM) call(caller acm.Account, callee acm.MutableAccount, code, input []
 						if !HasPermission(vm.stateWriter, caller, permission.CreateAccount) {
 							return nil, ErrPermission{"create_account"}
 						}
-						acc = acm.ConcreteAccount{Address: acm.AddressFromWord256(addr)}.MutableAccount()
+						acc = acm.ConcreteAccount{Address: crypto.AddressFromWord256(addr)}.MutableAccount()
 					}
 					// add account to the tx cache
 					vm.stateWriter.UpdateAccount(acc)
@@ -1044,7 +1045,7 @@ func (vm *VM) call(caller acm.Account, callee acm.MutableAccount, code, input []
 			if useGasNegative(gas, GasGetAccount, &err) {
 				return nil, err
 			}
-			receiver, errAcc := state.GetMutableAccount(vm.stateWriter, acm.AddressFromWord256(addr))
+			receiver, errAcc := state.GetMutableAccount(vm.stateWriter, crypto.AddressFromWord256(addr))
 			if errAcc != nil {
 				return nil, firstErr(err, errAcc)
 			}

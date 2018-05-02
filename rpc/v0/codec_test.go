@@ -17,17 +17,17 @@ package v0
 import (
 	"testing"
 
-	acm "github.com/hyperledger/burrow/account"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestKeysEncoding(t *testing.T) {
 	codec := NewTCodec()
-	privateKey := acm.PrivateKeyFromSecret("foo")
+	privateKey := crypto.PrivateKeyFromSecret("foo")
 	type keyPair struct {
-		PrivateKey acm.PrivateKey
-		PublicKey  acm.PublicKey
+		PrivateKey crypto.PrivateKey
+		PublicKey  crypto.PublicKey
 	}
 
 	kp := keyPair{
