@@ -67,7 +67,7 @@ type Kernel struct {
 }
 
 func NewKernel(ctx context.Context, keyClient keys.KeyClient, privValidator tm_types.PrivValidator,
-	genesisDoc *genesis.GenesisDoc, tmConf *tm_config.Config, rpcConfig *rpc.RPCConfig,
+	genesisDoc *genesis.GenesisDoc, tmConf *tm_config.Config, rpcConfig *rpc.RPCConfig, keyConfig *keys.KeysConfig,
 	exeOptions []execution.ExecutionOption, logger *logging.Logger) (*Kernel, error) {
 
 	logger = logger.WithScope("NewKernel()").With(structure.TimeKey, kitlog.DefaultTimestampUTC)

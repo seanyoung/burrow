@@ -345,6 +345,143 @@ func burrow() *cli.Cli {
 			}
 		})
 
+	app.Command("keys",
+		"A tool for doing a bunch of cool stuff with keys",
+		func(cmd *cli.Cmd) {
+			if keysHost := os.Getenv("MONAX_KEYS_HOST"); keysHost != "" {
+				keys.DefaultHost = keysHost
+			}
+			if keysPort := os.Getenv("MONAX_KEYS_PORT"); keysPort != "" {
+				keys.DefaultPort = keysPort
+			}
+
+			keys.KeyHost = *cmd.StringOpt("host", keys.DefaultHost, "set the host for talking to the key daemon")
+
+			keys.KeyPort = *cmd.StringOpt("port", keys.DefaultPort, "set the port for key daemon")
+
+			cmd.Command("server", "run keys server", func(cmd *cli.Cmd) {
+				keys.KeysDir = *cmd.StringOpt("dir", keys.DefaultDir, "specify the location of the directory containing key files")
+
+				cmd.Action = func() {
+					keys.StartServer(keys.KeyHost, keys.KeyPort)
+				}
+			})
+
+			cmd.Command("gen", "Generates a key using (insert crypto pkgs used)", func(cmd *cli.Cmd) {
+				//cmd.Spec = "[--no-pass]"
+
+				keys.NoPassword = *cmd.BoolOpt("no-pass", false, "don't use a password for this key")
+
+				keyType := cmd.StringOpt("t type", "ed25519,ripemd160", "specify the type of key to create. Supports 'secp256k1,sha3' (ethereum),  'secp256k1,ripemd160sha2' (bitcoin), 'ed25519,ripemd160' (tendermint)")
+
+				keyName := cmd.StringOpt("name", "", "name of key to use")
+
+				cmd.Action = func() {
+					fmt.Printf("NoPassword: %v\n", keys.NoPassword)
+					fmt.Printf("KeyName: %v\n", *keyName)
+					keys.CliKeygen(*keyType, *keyName)
+				}
+			})
+
+			cmd.Command("hash", "hash <some data>", func(cmd *cli.Cmd) {
+				keys.HashType = *cmd.StringOpt("t type", keys.DefaultHashType, "specify the hash function to use")
+
+				keys.HexByte = *cmd.BoolOpt("hex", false, "the input should be hex decoded to bytes first")
+
+				msg := cmd.StringArg("MSG", "", "message to hash")
+
+				cmd.Action = func() {
+					keys.CliHash(*msg)
+				}
+			})
+
+			cmd.Command("import", "import <priv key> | /path/to/keyfile | <key json>", func(cmd *cli.Cmd) {
+				keys.NoPassword = *cmd.BoolOpt("no-pass", false, "don't use a password for this key")
+
+				keyType := cmd.StringOpt("t type", "ed25519,ripemd160", "specify the type of key to create. Supports 'secp256k1,sha3' (ethereum),  'secp256k1,ripemd160sha2' (bitcoin), 'ed25519,ripemd160' (tendermint)")
+				privKey := cmd.StringArg("KEY", "", "private key, filename, or raw json")
+
+				cmd.Action = func() {
+					keys.CliImport(*privKey, *keyType)
+				}
+			})
+
+			cmd.Command("lock", "lock a key", func(cmd *cli.Cmd) {
+				keys.KeyName = *cmd.StringOpt("name", "", "name of key to use")
+				keys.KeyAddr = *cmd.StringOpt("addr", "", "address of key to use")
+
+				cmd.Action = func() {
+					keys.CliLock()
+				}
+			})
+
+			cmd.Command("unlock", "unlock an unlocked key by supplying the password", func(cmd *cli.Cmd) {
+				keys.KeyName = *cmd.StringOpt("name", "", "name of key to use")
+				keys.KeyAddr = *cmd.StringOpt("addr", "", "address of key to use")
+
+				cmd.Action = func() {
+					keys.CliUnlock()
+				}
+			})
+
+			cmd.Command("pub", "public key", func(cmd *cli.Cmd) {
+				keys.KeyName = *cmd.StringOpt("name", "", "name of key to use")
+				keys.KeyAddr = *cmd.StringOpt("addr", "", "address of key to use")
+
+				cmd.Action = func() {
+					keys.CliPub()
+				}
+			})
+
+			cmd.Command("sign", "sign <some data>", func(cmd *cli.Cmd) {
+				keys.KeyName = *cmd.StringOpt("name", "", "name of key to use")
+				keys.KeyAddr = *cmd.StringOpt("addr", "", "address of key to use")
+
+				msg := cmd.StringArg("MSG", "", "message to hash")
+
+				cmd.Action = func() {
+					keys.CliSign(*msg)
+				}
+			})
+
+			cmd.Command("verify", "verify <some data> <sig>", func(cmd *cli.Cmd) {
+				keys.KeyName = *cmd.StringOpt("name", "", "name of key to use")
+				keys.KeyAddr = *cmd.StringOpt("addr", "", "address of key to use")
+
+				msg := cmd.StringArg("MSG", "", "message to check")
+				sig := cmd.StringArg("SIG", "", "signature")
+				pub := cmd.StringArg("PUBLIC", "", "public key")
+
+				cmd.Action = func() {
+					keys.CliVerify(*msg, *sig, *pub)
+				}
+			})
+
+			cmd.Command("name", "Manage keys name", func(cmd *cli.Cmd) {
+				cmd.Command("add", "add key by name or addr", func(cmd *cli.Cmd) {
+					name := *cmd.StringOpt("name", "", "name of key to use")
+					addr := *cmd.StringOpt("addr", "", "address of key to use")
+
+					cmd.Action = func() {
+						keys.CliNameAdd(name, addr)
+					}
+				})
+
+				cmd.Command("ls", "list key names", func(cmd *cli.Cmd) {
+					cmd.Action = func() {
+						keys.CliNameLs()
+					}
+				})
+
+				cmd.Command("rm", "rm key by name", func(cmd *cli.Cmd) {
+					name := cmd.StringArg("NAME", "", "key to remove")
+
+					cmd.Action = func() {
+						keys.CliNameRm(*name)
+					}
+				})
+			})
+		})
 	return app
 }
 
