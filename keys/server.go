@@ -25,7 +25,7 @@ func StartServer(host, port string) error {
 		return err
 	}
 
-	AccountManager = NewManager(ks)
+	GlobalKeystore = ks
 
 	listen, err := net.Listen("tcp", host+":"+port)
 	if err != nil {
@@ -84,7 +84,7 @@ func convertMintHandler(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, err)
 		return
 	}
-	key, err := coreConvert(addr)
+	key, err := coreConvert("", addr)
 	if err != nil {
 		WriteError(w, err)
 		return
@@ -102,7 +102,7 @@ func (k *server) Pub(ctx context.Context, in *PubRequest) (*PubResponse, error) 
 		return nil, err
 	}
 
-	pub, err := corePub(addr)
+	pub, err := corePub("", addr)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (k *server) Sign(ctx context.Context, in *SignRequest) (*SignResponse, erro
 		return nil, err
 	}
 
-	sig, err := coreSign(in.Message, addr)
+	sig, err := coreSign("", in.Message, addr)
 	if err != nil {
 		return nil, err
 	}

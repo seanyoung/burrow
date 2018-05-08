@@ -11,8 +11,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strconv"
-	"time"
 
 	"github.com/hyperledger/burrow/keys/crypto"
 
@@ -23,28 +21,17 @@ import (
 
 var ErrLocked = fmt.Errorf("account is locked")
 
-var AccountManager *Manager
+var GlobalKeystore crypto.KeyStore
 
-func GetKey(addr []byte) (*crypto.Key, error) {
+func GetKey(addr []byte, passphrase string) (*crypto.Key, error) {
 	// first check if the key is unlocked
-	k := AccountManager.GetKey(addr)
-	if k != nil {
-		// Using unlocked key
-		return k, nil
-	}
-	// key is not unlocked
-	// now see if we can find an encrypted version on disk
-	isEncrypted, err := crypto.IsEncryptedKey(AccountManager.KeyStore(), addr)
-	if err == nil && isEncrypted {
-		return nil, ErrLocked
-	}
-
-	// else, it should be unencrypted on disk
-	keyStore, err := newKeyStore()
+	k, err := GlobalKeystore.GetKey(addr, passphrase)
 	if err != nil {
+		// Using unlocked key
 		return nil, err
 	}
-	return keyStore.GetKey(addr, "")
+
+	return k, nil
 }
 
 //-----
@@ -110,7 +97,7 @@ func coreImport(auth, keyType, theKey string) ([]byte, error) {
 			return nil, err
 		}
 	} else {
-		keyStore = AccountManager.KeyStore()
+		keyStore = GlobalKeystore
 	}
 
 	// TODO: unmarshal json and use auth to encrypt
@@ -161,7 +148,7 @@ func coreKeygen(auth, keyType string) ([]byte, error) {
 			return nil, err
 		}
 	} else {
-		keyStore = AccountManager.KeyStore()
+		keyStore = GlobalKeystore
 	}
 
 	var key *crypto.Key
@@ -177,7 +164,7 @@ func coreKeygen(auth, keyType string) ([]byte, error) {
 	return key.Address, nil
 }
 
-func coreSign(hash, addr string) ([]byte, error) {
+func coreSign(hash, addr, passphrase string) ([]byte, error) {
 
 	hashB, err := hex.DecodeString(hash)
 	if err != nil {
@@ -188,7 +175,7 @@ func coreSign(hash, addr string) ([]byte, error) {
 		return nil, fmt.Errorf("addr is invalid hex: %s", err.Error())
 	}
 
-	key, err := GetKey(addrB)
+	key, err := GetKey(addrB, passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -225,12 +212,12 @@ func coreVerify(typ, pub, hash, sig string) (result bool, err error) {
 	return
 }
 
-func corePub(addr string) ([]byte, error) {
+func corePub(passphrase, addr string) ([]byte, error) {
 	addrB, err := hex.DecodeString(addr)
 	if err != nil {
 		return nil, fmt.Errorf("addr is invalid hex: %s", err.Error())
 	}
-	key, err := GetKey(addrB)
+	key, err := GetKey(addrB, passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -241,7 +228,7 @@ func corePub(addr string) ([]byte, error) {
 	return pub, nil
 }
 
-func coreConvert(addr string) ([]byte, error) {
+func coreConvert(passphrase, addr string) ([]byte, error) {
 	type privValidator struct {
 		Address    []byte        `json:"address"`
 		PubKey     []interface{} `json:"pub_key"`
@@ -255,7 +242,7 @@ func coreConvert(addr string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("addr is invalid hex: %s", err.Error())
 	}
-	key, err := GetKey(addrB)
+	key, err := GetKey(addrB, passphrase)
 	if err != nil {
 		return nil, err
 	}
@@ -284,31 +271,6 @@ func coreConvert(addr string) ([]byte, error) {
 	}
 
 	return wire.JSONBytes(privVal), nil
-}
-
-func coreUnlock(auth, addr, timeout string) error {
-	addrB, err := hex.DecodeString(addr)
-	if err != nil {
-		return fmt.Errorf("addr is invalid hex: %s", err.Error())
-	}
-
-	if _, err := GetKey(addrB); err == nil {
-		return fmt.Errorf("Key is already unlocked or was never encrypted")
-	}
-
-	var timeoutD time.Duration
-	if timeout != "" {
-		t, err := strconv.ParseInt(timeout, 0, 64)
-		if err != nil {
-			return err
-		}
-		timeoutD = time.Duration(t)
-	}
-
-	if err := AccountManager.TimedUnlock(addrB, auth, timeoutD*time.Minute); err != nil {
-		return err
-	}
-	return nil
 }
 
 func coreHash(typ, data string, hexD bool) ([]byte, error) {
