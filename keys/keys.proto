@@ -4,8 +4,6 @@ package keys;
 
 service Keys {
     rpc Gen(GenRequest) returns (GenResponse);
-    /* rpc Lock(LockRequest) returns (Empty); not implemented */
-    rpc Unlock(UnlockRequest) returns (Empty);
     rpc Pub(PubRequest) returns (PubResponse);
     rpc Sign(SignRequest) returns (SignResponse);
     rpc Verify(VerifyRequest) returns (Empty);
@@ -31,19 +29,6 @@ message GenRequest {
 
 message GenResponse {
     string address = 1;
-}
-
-message LockRequest {
-    string auth = 1;
-    string address = 2;
-    string keyname = 3;
-}
-
-message UnlockRequest {
-    string auth = 1;
-    string address = 2;
-    string keyname = 3;
-    int32 timeout = 4;	// minutes
 }
 
 message PubRequest {

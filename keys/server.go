@@ -72,15 +72,6 @@ func (k *server) Gen(ctx context.Context, in *GenRequest) (*GenResponse, error) 
 	return &GenResponse{Address: addrH}, nil
 }
 
-func (k *server) Unlock(ctx context.Context, in *UnlockRequest) (*Empty, error) {
-	addr, err := getNameAddr(in.Keyname, in.Address)
-	if err != nil {
-		return nil, err
-	}
-
-	return nil, coreUnlock(in.Auth, addr, fmt.Sprintf("%d", in.Timeout))
-}
-
 func convertMintHandler(w http.ResponseWriter, r *http.Request) {
 	_, _, args, err := typeAuthArgs(r)
 	if err != nil {
