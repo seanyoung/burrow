@@ -93,6 +93,17 @@ func newKeySecp256k1() (*Key, error) {
 	}, nil
 }
 
+func NewKeyFromPriv(CurveType CurveType, PrivKey []byte) (*Key, error) {
+	switch CurveType {
+	case CurveTypeEd25519:
+		return nil, nil
+	case CurveTypeSecp256k1:
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("Unknown curve type %v", CurveType)
+	}
+}
+
 type KeyStore interface {
 	GenerateKey(passphrase string, curveType CurveType) (*Key, error)
 	GetKey(passphrase string, addr []byte) (*Key, error)

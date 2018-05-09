@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hyperledger/burrow/keys/protobuf"
 	"google.golang.org/grpc"
 )
 
@@ -20,7 +21,7 @@ import (
 type server struct{}
 
 func StartServer(host, port string) error {
-	ks, err := newKeyStoreAuth()
+	ks, err := newKeyStore()
 	if err != nil {
 		return err
 	}
@@ -33,7 +34,7 @@ func StartServer(host, port string) error {
 	}
 
 	grpcServer := grpc.NewServer()
-	RegisterKeysServer(grpcServer, &server{})
+	pbkeys.RegisterKeysServer(grpcServer, &server{})
 	return grpcServer.Serve(listen)
 }
 
@@ -55,7 +56,7 @@ func WriteError(w http.ResponseWriter, err error) {
 //------------------------------------------------------------------------
 // handlers
 
-func (k *server) Gen(ctx context.Context, in *GenRequest) (*GenResponse, error) {
+func (k *server) Gen(ctx context.Context, in *pbkeys.GenRequest) (*pbkeys.GenResponse, error) {
 	addr, err := coreKeygen(in.Auth, in.Keytype)
 	if err != nil {
 		return nil, err
@@ -69,7 +70,7 @@ func (k *server) Gen(ctx context.Context, in *GenRequest) (*GenResponse, error) 
 		}
 	}
 
-	return &GenResponse{Address: addrH}, nil
+	return &pbkeys.GenResponse{Address: addrH}, nil
 }
 
 func convertMintHandler(w http.ResponseWriter, r *http.Request) {
@@ -96,7 +97,7 @@ func lockHandler(w http.ResponseWriter, r *http.Request) {
 	// TODO
 }
 
-func (k *server) Pub(ctx context.Context, in *PubRequest) (*PubResponse, error) {
+func (k *server) Pub(ctx context.Context, in *pbkeys.PubRequest) (*pbkeys.PubResponse, error) {
 	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
 		return nil, err
@@ -107,10 +108,10 @@ func (k *server) Pub(ctx context.Context, in *PubRequest) (*PubResponse, error) 
 		return nil, err
 	}
 
-	return &PubResponse{Pub: fmt.Sprintf("%X", pub)}, nil
+	return &pbkeys.PubResponse{Pub: fmt.Sprintf("%X", pub)}, nil
 }
 
-func (k *server) Sign(ctx context.Context, in *SignRequest) (*SignResponse, error) {
+func (k *server) Sign(ctx context.Context, in *pbkeys.SignRequest) (*pbkeys.SignResponse, error) {
 	addr, err := getNameAddr(in.Keyname, in.Address)
 	if err != nil {
 		return nil, err
@@ -121,10 +122,10 @@ func (k *server) Sign(ctx context.Context, in *SignRequest) (*SignResponse, erro
 		return nil, err
 	}
 
-	return &SignResponse{Signature: fmt.Sprintf("%X", sig)}, nil
+	return &pbkeys.SignResponse{Signature: fmt.Sprintf("%X", sig)}, nil
 }
 
-func (k *server) Verify(ctx context.Context, in *VerifyRequest) (*Empty, error) {
+func (k *server) Verify(ctx context.Context, in *pbkeys.VerifyRequest) (*pbkeys.Empty, error) {
 	if in.GetPub() == "" {
 		return nil, fmt.Errorf("must provide a pubkey with the `pub` key")
 	}
@@ -140,13 +141,13 @@ func (k *server) Verify(ctx context.Context, in *VerifyRequest) (*Empty, error) 
 	return nil, err
 }
 
-func (k *server) Hash(ctx context.Context, in *HashRequest) (*HashResponse, error) {
+func (k *server) Hash(ctx context.Context, in *pbkeys.HashRequest) (*pbkeys.HashResponse, error) {
 	hash, err := coreHash(in.GetKeytype(), in.GetMessage(), in.GetHex())
 	if err != nil {
 		return nil, err
 	}
 
-	return &HashResponse{Hash: fmt.Sprintf("%X", hash)}, nil
+	return &pbkeys.HashResponse{Hash: fmt.Sprintf("%X", hash)}, nil
 }
 
 func importHandler(w http.ResponseWriter, r *http.Request) {
@@ -172,22 +173,22 @@ func importHandler(w http.ResponseWriter, r *http.Request) {
 	WriteResult(w, fmt.Sprintf("%X", addr))
 }
 
-func (k *server) List(ctx context.Context, in *Name) (*ListResponse, error) {
+func (k *server) List(ctx context.Context, in *pbkeys.Name) (*pbkeys.ListResponse, error) {
 	names, err := coreNameList()
 	if err != nil {
 		return nil, err
 	}
 
-	var list []*Key
+	var list []*pbkeys.Key
 
 	for name, addr := range names {
-		list = append(list, &Key{Keyname: name, Address: addr})
+		list = append(list, &pbkeys.Key{Keyname: name, Address: addr})
 	}
 
-	return &ListResponse{Key: list}, nil
+	return &pbkeys.ListResponse{Key: list}, nil
 }
 
-func (k *server) Remove(ctx context.Context, in *Name) (*Empty, error) {
+func (k *server) Remove(ctx context.Context, in *pbkeys.Name) (*pbkeys.Empty, error) {
 	if in.GetKeyname() == "" {
 		return nil, fmt.Errorf("please specify a name")
 	}
@@ -195,7 +196,7 @@ func (k *server) Remove(ctx context.Context, in *Name) (*Empty, error) {
 	return nil, coreNameRm(in.GetKeyname())
 }
 
-func (k *server) Add(ctx context.Context, in *AddRequest) (*Empty, error) {
+func (k *server) Add(ctx context.Context, in *pbkeys.AddRequest) (*pbkeys.Empty, error) {
 	if in.GetKeyname() == "" {
 		return nil, fmt.Errorf("please specify a name")
 	}

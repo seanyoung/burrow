@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package keys;
+package pbkeys;
 
 service Keys {
     rpc Gen(GenRequest) returns (GenResponse);

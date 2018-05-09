@@ -12,20 +12,16 @@ import (
 	"path"
 	"path/filepath"
 
-	"github.com/hyperledger/burrow/keys/crypto"
-
-	tmint_crypto "github.com/hyperledger/burrow/keys/crypto/helpers"
+	"github.com/hyperledger/burrow/crypto"
 	"github.com/tendermint/go-wire"
 	"golang.org/x/crypto/ripemd160"
 )
 
-var ErrLocked = fmt.Errorf("account is locked")
+var GlobalKeystore KeyStore
 
-var GlobalKeystore crypto.KeyStore
-
-func GetKey(addr []byte, passphrase string) (*crypto.Key, error) {
+func GetKey(addr []byte, passphrase string) (*Key, error) {
 	// first check if the key is unlocked
-	k, err := GlobalKeystore.GetKey(addr, passphrase)
+	k, err := GlobalKeystore.GetKey(passphrase, addr)
 	if err != nil {
 		// Using unlocked key
 		return nil, err
@@ -58,20 +54,12 @@ func returnNamesDir(dir string) (string, error) {
 
 // TODO: overwrite all mem buffers/registers?
 
-func newKeyStore() (crypto.KeyStore, error) {
+func newKeyStore() (KeyStore, error) {
 	dir, err := returnDataDir(KeysDir)
 	if err != nil {
 		return nil, err
 	}
-	return crypto.NewKeyStorePlain(dir), nil
-}
-
-func newKeyStoreAuth() (crypto.KeyStore, error) {
-	dir, err := returnDataDir(KeysDir)
-	if err != nil {
-		return nil, err
-	}
-	return crypto.NewKeyStorePassphrase(dir), nil
+	return NewKeyStoreFile(dir), nil
 }
 
 //----------------------------------------------------------------
@@ -80,14 +68,14 @@ func writeKey(keyDir string, addr, keyJson []byte) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Failed to get keys dir: %v", err)
 	}
-	if err := crypto.WriteKeyFile(addr, dir, keyJson); err != nil {
+	if err := WriteKeyFile(addr, dir, keyJson); err != nil {
 		return nil, err
 	}
 	return addr, nil
 }
 
-func coreImport(auth, keyType, theKey string) ([]byte, error) {
-	var keyStore crypto.KeyStore
+func coreImport(auth, curveType, theKey string) ([]byte, error) {
+	var keyStore KeyStore
 	var err error
 
 	log.Printf("Importing key. Type (%s). Encrypted (%v)\n", keyType, auth != "")
@@ -106,7 +94,7 @@ func coreImport(auth, keyType, theKey string) ([]byte, error) {
 	// its a valid key, write to file
 	if len(theKey) > 0 && theKey[:1] == "{" {
 		keyJson := []byte(theKey)
-		if addr := crypto.IsValidKeyJson(keyJson); addr != nil {
+		if addr := IsValidKeyJson(keyJson); addr != nil {
 			return writeKey(KeysDir, addr, keyJson)
 		} else {
 			return nil, fmt.Errorf("invalid json key passed on command line")
@@ -119,49 +107,37 @@ func coreImport(auth, keyType, theKey string) ([]byte, error) {
 		return nil, fmt.Errorf("private key is not a valid json or is invalid hex: %v", err)
 	}
 
-	keyT, err := crypto.KeyTypeFromString(keyType)
+	curveT, err := CurveTypeFromString(curveType)
 	if err != nil {
 		return nil, err
 	}
-	key, err := crypto.NewKeyFromPriv(keyT, keyBytes)
+	key, err := NewKeyFromPriv(curveT, keyBytes)
 	if err != nil {
 		return nil, err
 	}
 
 	// store the new key
-	if err = keyStore.StoreKey(key, auth); err != nil {
+	if err = GlobalKeystore.StoreKey(auth, key); err != nil {
 		return nil, err
 	}
 
-	return key.Address, nil
+	return key.Address[:], nil
 }
 
-func coreKeygen(auth, keyType string) ([]byte, error) {
-	var keyStore crypto.KeyStore
-	var err error
-
+func coreKeygen(auth, curveType string) ([]byte, error) {
 	log.Printf("Generating new key. Type (%s). Encrypted (%v)\n", keyType, auth != "")
 
-	if auth == "" {
-		keyStore, err = newKeyStore()
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		keyStore = GlobalKeystore
-	}
-
-	var key *crypto.Key
-	keyT, err := crypto.KeyTypeFromString(keyType)
+	curveT, err := CurveTypeFromString(curveType)
 	if err != nil {
 		return nil, err
 	}
-	key, err = keyStore.GenerateNewKey(keyT, auth)
+
+	key, err := GlobalKeystore.GenerateKey(auth, curveT)
 	if err != nil {
 		return nil, fmt.Errorf("error generating key %s %s", keyType, err)
 	}
-	log.Printf("Generated new key. Address (%x). Type (%s). Encrypted (%v)\n", key.Address, key.Type, auth != "")
-	return key.Address, nil
+	log.Printf("Generated new key. Address (%x). Type (%s). Encrypted (%v)\n", key.Address, key.CurveType, auth != "")
+	return key.Address[:], nil
 }
 
 func coreSign(hash, addr, passphrase string) ([]byte, error) {
@@ -187,7 +163,7 @@ func coreSign(hash, addr, passphrase string) ([]byte, error) {
 }
 
 func coreVerify(typ, pub, hash, sig string) (result bool, err error) {
-	keyT, err := crypto.KeyTypeFromString(typ)
+	curveT, err := CurveTypeFromString(typ)
 	if err != nil {
 		return result, err
 	}
@@ -204,7 +180,7 @@ func coreVerify(typ, pub, hash, sig string) (result bool, err error) {
 		return result, fmt.Errorf("sig is invalid hex: %s", err.Error())
 	}
 
-	result, err = crypto.Verify(keyT.CurveType, hashB, sigB, pubB)
+	result, err = crypto.Verify(curveT, hashB, sigB, pubB)
 	if err != nil {
 		return result, fmt.Errorf("error verifying signature %x for pubkey %x: %v", sigB, pubB, err)
 	}
