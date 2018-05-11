@@ -52,7 +52,7 @@ func (k *Key) MarshalJSON() (j []byte, err error) {
 	jStruct := plainKeyJSON{
 		k.CurveType.String(),
 		fmt.Sprintf("%X", k.Address),
-		k.PrivateKey,
+		k.PrivateKey.Bytes(),
 	}
 	j, err = json.Marshal(jStruct)
 	return j, err
@@ -69,17 +69,29 @@ func (k *Key) UnmarshalJSON(j []byte) (err error) {
 		return fmt.Errorf("no private key")
 	}
 
-	Address, err := hex.DecodeString(keyJSON.Address)
+	address, err := hex.DecodeString(keyJSON.Address)
 	if err != nil {
 		return err
 	}
-	k.Address, err = crypto.AddressFromBytes(Address)
+
+	curveType, err := crypto.CurveTypeFromString(keyJSON.CurveType)
 	if err != nil {
 		return err
 	}
-	k.PrivateKey = keyJSON.PrivateKey
-	k.CurveType, err = CurveTypeFromString(keyJSON.CurveType)
-	return err
+	k2, err := NewKeyFromPriv(curveType, keyJSON.PrivateKey)
+	if err != nil {
+		return err
+	}
+
+	if keyJSON.Address != k2.Address.String() {
+		return fmt.Errorf("Address does not match private key")
+	}
+
+	k.Address = k2.Address
+	k.CurveType = curveType
+	k.PrivateKey = k2.PrivateKey
+
+	return nil
 }
 
 // returns the address if valid, nil otherwise
@@ -110,7 +122,7 @@ func NewKeyStoreFile(path string) KeyStore {
 	return &keyStoreFile{keysDirPath: path}
 }
 
-func (ks keyStoreFile) GenerateKey(passphrase string, curveType CurveType) (key *Key, err error) {
+func (ks keyStoreFile) GenerateKey(passphrase string, curveType crypto.CurveType) (key *Key, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("GenerateNewKey error: %v", r)
@@ -147,7 +159,7 @@ func DecryptKey(passphrase string, keyProtected *encryptedKeyJSON) (*Key, error)
 	nonce := keyProtected.Crypto.Nonce
 	cipherText := keyProtected.Crypto.CipherText
 
-	curveType, err := CurveTypeFromString(keyProtected.CurveType)
+	curveType, err := crypto.CurveTypeFromString(keyProtected.CurveType)
 	if err != nil {
 		return nil, err
 	}
@@ -172,12 +184,7 @@ func DecryptKey(passphrase string, keyProtected *encryptedKeyJSON) (*Key, error)
 	if err != nil {
 		return nil, err
 	}
-
-	return &Key{
-		CurveType:  curveType,
-		Address:    address,
-		PrivateKey: plainText,
-	}, nil
+	return NewKeyFromPriv(curveType, plainText)
 }
 
 func (ks keyStoreFile) GetAllAddresses() (addresses [][]byte, err error) {
@@ -218,7 +225,7 @@ func (ks keyStoreFile) StoreKeyEncrypted(passphrase string, key *Key) error {
 		return err
 	}
 
-	toEncrypt := key.PrivateKey
+	toEncrypt := key.PrivateKey.Bytes()
 
 	AES256Block, err := aes.NewCipher(derivedKey)
 	if err != nil {

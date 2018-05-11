@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 
 	"github.com/hyperledger/burrow/crypto"
+	tmint_crypto "github.com/tendermint/go-crypto"
 	"github.com/tendermint/go-wire"
 	"golang.org/x/crypto/ripemd160"
 )
@@ -107,7 +108,7 @@ func coreImport(auth, curveType, theKey string) ([]byte, error) {
 		return nil, fmt.Errorf("private key is not a valid json or is invalid hex: %v", err)
 	}
 
-	curveT, err := CurveTypeFromString(curveType)
+	curveT, err := crypto.CurveTypeFromString(curveType)
 	if err != nil {
 		return nil, err
 	}
@@ -127,7 +128,7 @@ func coreImport(auth, curveType, theKey string) ([]byte, error) {
 func coreKeygen(auth, curveType string) ([]byte, error) {
 	log.Printf("Generating new key. Type (%s). Encrypted (%v)\n", keyType, auth != "")
 
-	curveT, err := CurveTypeFromString(curveType)
+	curveT, err := crypto.CurveTypeFromString(curveType)
 	if err != nil {
 		return nil, err
 	}
@@ -155,15 +156,15 @@ func coreSign(hash, addr, passphrase string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	sig, err := key.Sign(hashB)
+	sig, err := key.PrivateKey.Sign(hashB)
 	if err != nil {
 		return nil, fmt.Errorf("error signing %x using %x: %v", hashB, addrB, err)
 	}
-	return sig, nil
+	return sig.Bytes(), nil
 }
 
 func coreVerify(typ, pub, hash, sig string) (result bool, err error) {
-	curveT, err := CurveTypeFromString(typ)
+	curveT, err := crypto.CurveTypeFromString(typ)
 	if err != nil {
 		return result, err
 	}
@@ -197,7 +198,7 @@ func corePub(passphrase, addr string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	pub, err := key.Pubkey()
+	pub := key.Pubkey()
 	if err != nil {
 		return nil, fmt.Errorf("error retrieving pub key for %x: %v", addrB, err)
 	}
@@ -223,7 +224,7 @@ func coreConvert(passphrase, addr string) ([]byte, error) {
 		return nil, err
 	}
 
-	pub, err := key.Pubkey()
+	pub := key.Pubkey()
 	if err != nil {
 		return nil, err
 	}

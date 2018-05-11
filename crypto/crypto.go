@@ -11,6 +11,42 @@ import (
 	"golang.org/x/crypto/ed25519"
 )
 
+type CurveType int8
+
+const (
+	CurveTypeSecp256k1 CurveType = iota
+	CurveTypeEd25519
+)
+
+func (k CurveType) String() string {
+	switch k {
+	case CurveTypeSecp256k1:
+		return "secp256k1"
+	case CurveTypeEd25519:
+		return "ed25519"
+	default:
+		return "unknown"
+	}
+}
+
+func CurveTypeFromString(s string) (CurveType, error) {
+	switch s {
+	case "secp256k1":
+		return CurveTypeSecp256k1, nil
+	case "ed25519":
+		return CurveTypeEd25519, nil
+	default:
+		var k CurveType
+		return k, ErrInvalidCurve(s)
+	}
+}
+
+type ErrInvalidCurve string
+
+func (err ErrInvalidCurve) Error() string {
+	return fmt.Sprintf("invalid curve type %v", err)
+}
+
 // The types in this file allow us to control serialisation of keys and signatures, as well as the interface
 // exposed regardless of crypto library
 
@@ -79,6 +115,17 @@ func (pk PublicKey) RawBytes() []byte {
 	}
 }
 
+func Verify(curveType CurveType, hash, sig, pub []byte) (bool, error) {
+	/*
+		switch curveType {
+		case CurveTypeSecp256k1:
+			return verifySigSecp256k1(hash, sig, pub)
+		case CurveTypeEd25519:
+			return verifySigEd25519(hash, sig, pub)
+		} */
+	return false, ErrInvalidCurve(curveType)
+}
+
 func (pk PublicKey) VerifyBytes(msg []byte, signature Signature) bool {
 	return pk.PubKey.VerifyBytes(msg, signature.Signature)
 }
@@ -142,6 +189,11 @@ func GeneratePrivateKey(randomReader io.Reader) (PrivateKey, error) {
 	return Ed25519PrivateKeyFromRawBytes(ed25519PrivateKey)
 }
 
+// Generates private key from a source of random bytes, if randomReader is nil crypto/rand.Reader is useds
+func Secp256k1GeneratePrivateKey() PrivateKey {
+	return PrivateKey{PrivKey: crypto.GenPrivKeySecp256k1().Wrap()}
+}
+
 // Creates an ed25519 key from the raw private key bytes
 func Ed25519PrivateKeyFromRawBytes(privKeyBytes []byte) (PrivateKey, error) {
 	privKeyEd25519 := crypto.PrivKeyEd25519{}
@@ -155,6 +207,16 @@ func Ed25519PrivateKeyFromRawBytes(privKeyBytes []byte) (PrivateKey, error) {
 	}
 	copy(privKeyEd25519[:], privKeyBytes)
 	return PrivateKeyFromGoCryptoPrivKey(privKeyEd25519.Wrap())
+}
+
+func Secp256k1PrivateKeyFromRawBytes(privKeyBytes []byte) (PrivateKey, error) {
+	if len(privKeyBytes) != len(crypto.PrivKeySecp256k1{}) {
+		return PrivateKey{}, fmt.Errorf("bytes passed have length %v by secp256k1 private keys have %v bytes",
+			len(privKeyBytes), len(crypto.PrivKeySecp256k1{}))
+	}
+	privKeySecp256k1 := crypto.PrivKeySecp256k1{}
+	copy(privKeySecp256k1[:], privKeyBytes)
+	return PrivateKey{PrivKey: privKeySecp256k1.Wrap()}, nil
 }
 
 // Ensures the last 32 bytes of the ed25519 private key is the public key derived from the first 32 private bytes

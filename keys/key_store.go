@@ -4,56 +4,21 @@ import (
 	"fmt"
 
 	"github.com/hyperledger/burrow/crypto"
+	"github.com/tendermint/ed25519"
 	tm_crypto "github.com/tendermint/go-crypto"
 )
 
-type CurveType int8
-
-const (
-	CurveTypeSecp256k1 CurveType = iota
-	CurveTypeEd25519
-)
-
-func (k CurveType) String() string {
-	switch k {
-	case CurveTypeSecp256k1:
-		return "secp256k1"
-	case CurveTypeEd25519:
-		return "ed25519"
-	default:
-		return "unknown"
-	}
-}
-
-func CurveTypeFromString(s string) (CurveType, error) {
-	switch s {
-	case "secp256k1":
-		return CurveTypeSecp256k1, nil
-	case "ed25519":
-		return CurveTypeEd25519, nil
-	default:
-		var k CurveType
-		return k, ErrInvalidCurve(s)
-	}
-}
-
-type ErrInvalidCurve string
-
-func (err ErrInvalidCurve) Error() string {
-	return fmt.Sprintf("invalid curve type %v", err)
-}
-
 type Key struct {
-	CurveType  CurveType
+	CurveType  crypto.CurveType
 	Address    crypto.Address
-	PrivateKey []byte
+	PrivateKey crypto.PrivateKey
 }
 
-func NewKey(typ CurveType) (*Key, error) {
+func NewKey(typ crypto.CurveType) (*Key, error) {
 	switch typ {
-	case CurveTypeSecp256k1:
+	case crypto.CurveTypeSecp256k1:
 		return newKeySecp256k1()
-	case CurveTypeEd25519:
+	case crypto.CurveTypeEd25519:
 		return newKeyEd25519()
 	default:
 		return nil, fmt.Errorf("Unknown curve type: %v", typ)
@@ -67,14 +32,18 @@ func newKeyEd25519() (*Key, error) {
 	}
 	pubKey := privKey.PublicKey()
 	return &Key{
-		CurveType:  CurveTypeEd25519,
+		CurveType:  crypto.CurveTypeEd25519,
 		Address:    pubKey.Address(),
-		PrivateKey: privKey.RawBytes(),
+		PrivateKey: privKey,
 	}, nil
 }
 
+func (k *Key) Pubkey() []byte {
+	return k.PrivateKey.PubKey().Address().Bytes()
+}
+
 func newKeySecp256k1() (*Key, error) {
-	privKey := tm_crypto.GenPrivKeySecp256k1()
+	privKey := crypto.Secp256k1GeneratePrivateKey()
 
 	pubKey, ok := privKey.PubKey().Unwrap().(tm_crypto.PubKeySecp256k1)
 	if !ok {
@@ -87,27 +56,78 @@ func newKeySecp256k1() (*Key, error) {
 	}
 
 	return &Key{
-		CurveType:  CurveTypeSecp256k1,
+		CurveType:  crypto.CurveTypeSecp256k1,
 		Address:    address,
-		PrivateKey: privKey[:],
+		PrivateKey: privKey,
 	}, nil
 }
 
-func NewKeyFromPriv(CurveType CurveType, PrivKey []byte) (*Key, error) {
+func NewKeyFromPriv(CurveType crypto.CurveType, PrivKeyBytes []byte) (*Key, error) {
+	var privKey crypto.PrivateKey
+	var err error
 	switch CurveType {
-	case CurveTypeEd25519:
-		return nil, nil
-	case CurveTypeSecp256k1:
-		return nil, nil
+	case crypto.CurveTypeEd25519:
+		privKey, err = crypto.Ed25519PrivateKeyFromRawBytes(PrivKeyBytes)
+	case crypto.CurveTypeSecp256k1:
+		privKey, err = crypto.Secp256k1PrivateKeyFromRawBytes(PrivKeyBytes)
 	default:
-		return nil, fmt.Errorf("Unknown curve type %v", CurveType)
+		err = fmt.Errorf("Unknown curve type %v", CurveType)
 	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	pubKey := privKey.PubKey()
+
+	address, err := crypto.AddressFromBytes(pubKey.Address())
+	if err != nil {
+		return nil, err
+	}
+
+	return &Key{
+		CurveType:  CurveType,
+		Address:    address,
+		PrivateKey: privKey,
+	}, nil
 }
 
 type KeyStore interface {
-	GenerateKey(passphrase string, curveType CurveType) (*Key, error)
+	GenerateKey(passphrase string, curveType crypto.CurveType) (*Key, error)
 	GetKey(passphrase string, addr []byte) (*Key, error)
 	GetAllAddresses() ([][]byte, error)
 	StoreKey(passphrase string, key *Key) error
 	DeleteKey(passphrase string, addr []byte) error
+}
+
+func signSecp256k1(k *Key, hash []byte) ([]byte, error) {
+	signature, err := k.PrivateKey.Sign(hash)
+	sig, ok := signature.Unwrap().(tm_crypto.SignatureSecp256k1)
+	if !ok {
+		return nil, fmt.Errorf("unwrapped Signature does not appear to be secp246k1")
+	}
+	return signature.Bytes(), nil
+}
+
+func signEd25519(k *Key, hash []byte) ([]byte, error) {
+	sig, err := k.PrivateKey.Sign(hash)
+	if err != nil {
+		return nil, err
+	}
+	return sig.Bytes(), nil
+}
+
+func verifySigSecp256k1(hash, sig, pubOG []byte) (bool, error) {
+	var pubKey tm_crypto.PubKeySecp256k1
+	copy(pubKey[:], pubOG)
+	return pubKey.VerifyBytes(hash, tm_crypto.SignatureSecp256k1(sig).Wrap()), nil
+}
+
+func verifySigEd25519(hash, sig, pub []byte) (bool, error) {
+	pubKeyBytes := new([32]byte)
+	copy(pubKeyBytes[:], pub)
+	sigBytes := new([64]byte)
+	copy(sigBytes[:], sig)
+	res := ed25519.Verify(pubKeyBytes, hash, sigBytes)
+	return res, nil
 }
