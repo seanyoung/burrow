@@ -78,6 +78,29 @@ func BuildJob(build *def.Build, do *def.Packages) (result string, err error) {
 	return "", nil
 }
 
+func CompileDeployJob(deploy *def.Deploy, do *def.Packages) (result string, err error) {
+	if filepath.Ext(deploy.Contract) == ".sol" {
+		contractPath := deploy.Contract
+		log.WithField("=>", contractPath).Info("Contract path")
+		// normal compilation/deploy sequence
+		resp, err := compilers.RequestCompile(contractPath, false, make(map[string]string))
+
+		if err != nil {
+			log.Errorln("Error compiling contracts: Compilers error:")
+			return "", err
+		} else if resp.Error != "" {
+			log.Errorln("Error compiling contracts: Language error:")
+			return "", fmt.Errorf("%v", resp.Error)
+		} else if resp.Warning != "" {
+			log.WithField("=>", resp.Warning).Warn("Warning during contract compilation")
+		}
+
+		deploy.CompilerResponse = resp
+	}
+
+	return "", nil
+}
+
 func DeployJob(deploy *def.Deploy, do *def.Packages) (result string, err error) {
 	deploy.Libraries, _ = util.PreProcessLibs(deploy.Libraries, do)
 	// trim the extension
@@ -172,7 +195,7 @@ func DeployJob(deploy *def.Deploy, do *def.Packages) (result string, err error) 
 			log.WithField("=>", string(response.Binary.Abi)).Info("Abi")
 			log.WithField("=>", response.Binary.Evm.Bytecode.Object).Info("Bin")
 			if response.Binary.Evm.Bytecode.Object != "" {
-				result, err = deployContract(deploy, do, response)
+				result, err = deployContract(deploy, do, response, libs)
 				if err != nil {
 					return "", err
 				}
@@ -184,7 +207,7 @@ func DeployJob(deploy *def.Deploy, do *def.Packages) (result string, err error) 
 				if response.Binary.Evm.Bytecode.Object == "" {
 					continue
 				}
-				result, err = deployContract(deploy, do, response)
+				result, err = deployContract(deploy, do, response, libs)
 				if err != nil {
 					return "", err
 				}
@@ -205,7 +228,7 @@ func DeployJob(deploy *def.Deploy, do *def.Packages) (result string, err error) 
 				if matchInstanceName(response.Objectname, deploy.Instance) {
 					log.WithField("=>", string(response.Binary.Abi)).Info("Abi")
 					log.WithField("=>", response.Binary.Evm.Bytecode.Object).Info("Bin")
-					result, err = deployContract(deploy, do, response)
+					result, err = deployContract(deploy, do, response, libs)
 					if err != nil {
 						return "", err
 					}
@@ -241,9 +264,14 @@ func findContractFile(contract, binPath string) (string, error) {
 }
 
 // TODO [rj] refactor to remove [contractPath] from functions signature => only used in a single error throw.
-func deployContract(deploy *def.Deploy, do *def.Packages, compilersResponse compilers.ResponseItem) (string, error) {
+func deployContract(deploy *def.Deploy, do *def.Packages, compilersResponse compilers.ResponseItem, libs map[string]string) (string, error) {
 	log.WithField("=>", string(compilersResponse.Binary.Abi)).Debug("Specification (From Compilers)")
-	contractCode := compilersResponse.Binary.Evm.Bytecode.Object
+
+	linked, err := compilers.BinaryLinkage(compilersResponse.Binary, libs)
+	if err != nil {
+		return "", err
+	}
+	contractCode := linked.Binary
 
 	// Save
 	if _, err := os.Stat(do.BinPath); os.IsNotExist(err) {
