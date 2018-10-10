@@ -50,6 +50,12 @@ func Deploy(output Output) func(cmd *cli.Cmd) {
 		defaultAmountOpt := cmd.StringOpt("m amount", "9999",
 			"default amount to use")
 
+		proposeOpt := cmd.BoolOpt("p propose", false, "create proposal")
+
+		proposeNameOpt := cmd.StringOpt("propose-name", "", "Name for proposal")
+
+		proposeDescOpt := cmd.StringOpt("propose-desc", "", "Descriptpion for proposal")
+
 		verboseOpt := cmd.BoolOpt("v verbose", false, "verbose output")
 
 		debugOpt := cmd.BoolOpt("d debug", false, "debug level output")
@@ -68,6 +74,9 @@ func Deploy(output Output) func(cmd *cli.Cmd) {
 			do.DefaultAmount = *defaultAmountOpt
 			do.Verbose = *verboseOpt
 			do.Debug = *debugOpt
+			do.Propose = *proposeOpt
+			do.ProposeName = *proposeNameOpt
+			do.ProposeDesc = *proposeDescOpt
 			do.Jobs = *jobsOpt
 			log.SetFormatter(new(PlainFormatter))
 			log.SetLevel(log.WarnLevel)

@@ -1143,12 +1143,12 @@ func TestHasPermission(t *testing.T) {
 	acc := acm.ConcreteAccount{
 		Permissions: permission.AccountPermissions{
 			Base: BasePermissionsFromStrings(t,
-				"00100001000111",
-				"11011110111000"),
+				"001000001000111",
+				"110111010111000"),
 		},
 	}.Account()
 	// Ensure we are falling through to global permissions on those bits not set
-	assert.True(t, HasPermission(st, acc, PermFlagFromString(t, "100001000110")))
+	assert.True(t, HasPermission(st, acc, PermFlagFromString(t, "1000001000110")))
 }
 
 func TestDataStackOverflow(t *testing.T) {

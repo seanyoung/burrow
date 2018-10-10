@@ -39,6 +39,9 @@ const (
 	ErrorCodeZeroPayment
 	ErrorCodeInvalidSequence
 	ErrorCodeReservedAddress
+	ErrorCodeInvalidProposal
+	ErrorCodeExpiredProposal
+	ErrorCodeProposalExecuted
 )
 
 func (c Code) ErrorCode() Code {

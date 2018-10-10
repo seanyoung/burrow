@@ -169,6 +169,11 @@ func allHavePermission(accountGetter state.AccountGetter, perm permission.PermFl
 	return nil
 }
 
+func hasProposalPermission(accountGetter state.AccountGetter, acc acm.Account,
+	logger *logging.Logger) bool {
+	return HasPermission(accountGetter, acc, permission.Proposal, logger)
+}
+
 func hasNamePermission(accountGetter state.AccountGetter, acc acm.Account,
 	logger *logging.Logger) bool {
 	return HasPermission(accountGetter, acc, permission.Name, logger)
