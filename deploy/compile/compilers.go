@@ -169,6 +169,16 @@ func Compile(file string, optimize bool, libraries map[string]string) (*Response
 
 	for f, s := range output.Contracts {
 		for contract, item := range s {
+			// strip metadata as this is not deterministic
+			// See https://solidity.readthedocs.io/en/v0.4.25/metadata.html
+			metadatalength := 86
+			if item.Evm.Bytecode.Object != "" {
+				metadata := item.Evm.Bytecode.Object[len(item.Evm.Bytecode.Object)-metadatalength:]
+				if strings.HasPrefix(metadata, "a165627a7a723058") && strings.HasSuffix(metadata, "0029") {
+					item.Evm.Bytecode.Object = item.Evm.Bytecode.Object[:len(item.Evm.Bytecode.Object)-metadatalength]
+				}
+			}
+
 			respItem := ResponseItem{
 				Filename:   f,
 				Objectname: objectName(contract),

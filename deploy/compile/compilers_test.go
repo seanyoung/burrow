@@ -52,7 +52,7 @@ func TestLocalMulti(t *testing.T) {
 		respItem := ResponseItem{
 			Objectname: objectName(strings.TrimSpace(contract)),
 		}
-		respItem.Contract.Evm.Bytecode.Object = item.Bin
+		respItem.Contract.Evm.Bytecode.Object = trimAuxdata(item.Bin)
 		respItemArray = append(respItemArray, respItem)
 	}
 	expectedResponse := &Response{
@@ -98,7 +98,7 @@ func TestLocalSingle(t *testing.T) {
 			Filename:   "simpleContract.sol",
 		}
 		respItem.Contract.Abi = json.RawMessage(item.Abi)
-		respItem.Contract.Evm.Bytecode.Object = item.Bin
+		respItem.Contract.Evm.Bytecode.Object = trimAuxdata(item.Bin)
 		respItem.Contract.Evm.Bytecode.LinkReferences = []byte("{}")
 		respItemArray = append(respItemArray, respItem)
 	}
