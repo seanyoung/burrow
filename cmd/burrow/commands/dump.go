@@ -82,7 +82,7 @@ func Dump(output Output) func(cmd *cli.Cmd) {
 							bs = append(bs, []byte("\n")...)
 						}
 					} else {
-						bs, err = cdc.MarshalBinaryLengthPrefixed(resp)
+						bs, err = cdc.MarshalBinary(resp)
 					}
 					if err != nil {
 						output.Fatalf("failed to marshall dump: %v", *filename, err)

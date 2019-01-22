@@ -226,7 +226,7 @@ func (s *State) LoadDump(filename string) error {
 	for err == nil {
 		var row dump.Dump
 
-		_, err = cdc.UnmarshalBinaryLengthPrefixedReader(f, &row, 0)
+		_, err = cdc.UnmarshalBinaryReader(f, &row, 0)
 		if err != nil {
 			break
 		}
