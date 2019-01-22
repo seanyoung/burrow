@@ -179,7 +179,7 @@ rpc/test/strange_loop.go: integration/rpctest
 
 .PHONY: test_restore
 test_restore: build_burrow bin/solc
-	@tests/scripts/bin_wrapper.sh dump/test.sh
+	@tests/scripts/bin_wrapper.sh tests/dump/test.sh
 
 # Go will attempt to run separate packages in parallel
 .PHONY: test_integration
