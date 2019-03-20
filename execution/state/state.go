@@ -111,6 +111,10 @@ type State struct {
 	logger     *logging.Logger
 }
 
+func (s *State) CloseDB() {
+	s.db.Close()
+}
+
 // Create a new State object
 func NewState(db dbm.DB) *State {
 	forest, err := storage.NewMutableForest(storage.NewPrefixDB(db, forestPrefix), defaultCacheCapacity)
