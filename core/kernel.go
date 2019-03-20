@@ -106,25 +106,29 @@ func (kern *Kernel) SetLogger(logger *logging.Logger) {
 
 // LoadState starts from scratch or previous chain
 func (kern *Kernel) LoadState(genesisDoc *genesis.GenesisDoc, dbDir string) (err error) {
-	if kern.Blockchain, err = bcm.LoadOrNewBlockchain(kern.stateDB, genesisDoc, kern.Logger); err != nil {
+	var existing bool
+	existing, kern.Blockchain, err = bcm.LoadOrNewBlockchain(kern.stateDB, genesisDoc, kern.Logger)
+	if err != nil {
 		return fmt.Errorf("error creating or loading blockchain state: %v", err)
 	}
 	kern.Blockchain.SetBlockStore(bcm.NewBlockStore(blockchain.NewBlockStore(kern.stateDB)))
 
-	// These should be in sync unless we are at the genesis block
-	if kern.Blockchain.LastBlockHeight() > 0 {
-		kern.Logger.InfoMsg("Loading application state")
+	if existing {
+		kern.Logger.InfoMsg("Loading application state", "height", kern.Blockchain.LastBlockHeight())
 		kern.State, err = state.LoadState(kern.stateDB, execution.VersionAtHeight(kern.Blockchain.LastBlockHeight()))
 		if err != nil {
 			return fmt.Errorf("could not load persisted execution state at hash 0x%X: %v",
 				kern.Blockchain.AppHashAfterLastBlock(), err)
 		}
+
 		if !bytes.Equal(kern.State.Hash(), kern.Blockchain.AppHashAfterLastBlock()) {
-			return fmt.Errorf("state and blockchain disagree on hash for block at height %d: "+
+			return fmt.Errorf("state and blockchain disagree on app hash at height %d: "+
 				"state gives %X, blockchain gives %X", kern.Blockchain.LastBlockHeight(),
 				kern.State.Hash(), kern.Blockchain.AppHashAfterLastBlock())
 		}
+
 	} else {
+		kern.Logger.InfoMsg("Creating new application state from genesis")
 		kern.State, err = state.MakeGenesisState(kern.stateDB, genesisDoc)
 		if err != nil {
 			return fmt.Errorf("could not build genesis state: %v", err)
@@ -142,9 +146,10 @@ func (kern *Kernel) LoadState(genesisDoc *genesis.GenesisDoc, dbDir string) (err
 
 // LoadDump restores chain state from the given dump file
 func (kern *Kernel) LoadDump(genesisDoc *genesis.GenesisDoc, dbDir, restoreFile string) (err error) {
-	if kern.Blockchain, err = bcm.LoadOrNewBlockchain(kern.stateDB, genesisDoc, kern.Logger); err != nil {
+	if _, kern.Blockchain, err = bcm.LoadOrNewBlockchain(kern.stateDB, genesisDoc, kern.Logger); err != nil {
 		return fmt.Errorf("error creating or loading blockchain state: %v", err)
 	}
+	kern.Blockchain.SetBlockStore(bcm.NewBlockStore(blockchain.NewBlockStore(kern.stateDB)))
 
 	if kern.State, err = state.MakeGenesisState(kern.stateDB, genesisDoc); err != nil {
 		return fmt.Errorf("could not build genesis state: %v", err)
@@ -167,7 +172,16 @@ func (kern *Kernel) LoadDump(genesisDoc *genesis.GenesisDoc, dbDir, restoreFile 
 		return err
 	}
 
-	kern.Logger.InfoMsg("State restore successful")
+	if !bytes.Equal(kern.State.Hash(), kern.Blockchain.GenesisDoc().AppHash) {
+		return fmt.Errorf("Restore produced a different apphash expect 0x%x got 0x%x",
+			kern.Blockchain.GenesisDoc().AppHash, kern.State.Hash())
+	}
+	err = kern.Blockchain.CommitWithAppHash(kern.State.Hash())
+	if err != nil {
+		return fmt.Errorf("Unable to commit %v", err)
+	}
+
+	kern.Logger.InfoMsg("State restore successful:%d", kern.Blockchain.LastBlockHeight())
 	kern.loadExecutors()
 	return nil
 }
