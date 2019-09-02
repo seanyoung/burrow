@@ -6,6 +6,8 @@ package keys;
 
 import "github.com/gogo/protobuf/gogoproto/gogo.proto";
 import "crypto.proto";
+import "txs.proto";
+import "payload.proto";
 
 option (gogoproto.stable_marshaler_all) = true;
 option (gogoproto.sizer_all) = true;
@@ -16,6 +18,7 @@ service Keys {
     rpc GenerateKey(GenRequest) returns (GenResponse);
     rpc PublicKey(PubRequest) returns (PubResponse);
     rpc Sign(SignRequest) returns (SignResponse);
+    rpc SignTx (SignTxRequest) returns (txs.Envelope);
     rpc Verify(VerifyRequest) returns (VerifyResponse);
     rpc Import(ImportRequest) returns (ImportResponse);
     rpc ImportJSON(ImportJSONRequest) returns (ImportResponse);
@@ -103,6 +106,13 @@ message SignRequest {
     string Address = 2;
     string Name = 3;
     bytes Message = 4;
+}
+
+message SignTxRequest {
+    // An existing Envelope - either signed or unsigned - if the latter will be signed server-side
+    txs.Envelope Envelope = 1 [(gogoproto.customtype) = "github.com/hyperledger/burrow/txs.Envelope"];
+    // If no Envelope provided then one will be generated from the provided payload and signed server-side
+    payload.Any Payload = 2;
 }
 
 message SignResponse {

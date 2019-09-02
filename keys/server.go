@@ -8,6 +8,8 @@ import (
 	"hash"
 	"strings"
 
+	"github.com/hyperledger/burrow/txs"
+
 	"github.com/hyperledger/burrow/crypto"
 	hex "github.com/tmthrgd/go-hex"
 	"golang.org/x/crypto/ripemd160"
@@ -116,6 +118,11 @@ func (k *KeyStore) Sign(ctx context.Context, in *SignRequest) (*SignResponse, er
 		return nil, err
 	}
 	return &SignResponse{Signature: sig}, err
+}
+
+func (k *KeyStore) SignTx(ctx context.Context, in *SignTxRequest) (*txs.Envelope, error) {
+	//txEnv := in.GetEnvelope(ts.transactor.BlockchainInfo.ChainID())
+	return &txs.Envelope{}, nil
 }
 
 func (k *KeyStore) Verify(ctx context.Context, in *VerifyRequest) (*VerifyResponse, error) {
@@ -302,4 +309,17 @@ func (k *KeyStore) AddName(ctx context.Context, in *AddNameRequest) (*AddNameRes
 	}
 
 	return &AddNameResponse{}, coreNameAdd(k.keysDirPath, in.GetKeyname(), strings.ToUpper(in.GetAddress()))
+}
+
+func (te *SignTxRequest) GetEnvelope(chainID string) *txs.Envelope {
+	if te == nil {
+		return nil
+	}
+	if te.Envelope != nil {
+		return te.Envelope
+	}
+	if te.Payload != nil {
+		return txs.EnvelopeFromAny(chainID, te.Payload)
+	}
+	return nil
 }

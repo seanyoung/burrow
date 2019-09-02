@@ -10,7 +10,7 @@ import (
 )
 
 type LocalKeyClient struct {
-	keys.KeyClient
+	crypto.KeyClient
 }
 
 var keysTimeout = 5 * time.Second
