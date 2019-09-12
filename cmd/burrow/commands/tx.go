@@ -38,7 +38,7 @@ func Tx(output Output) func(cmd *cli.Cmd) {
 			}
 
 			chainHost := jobs.FirstOf(*chainOpt, fmt.Sprintf("%s:%s", conf.RPC.GRPC.ListenHost, conf.RPC.GRPC.ListenPort))
-			client := def.NewClient(chainHost, conf.Keys.RemoteAddress, true, time.Duration(*timeoutOpt)*time.Second)
+			client := def.NewClient(chainHost, true, time.Duration(*timeoutOpt)*time.Second)
 			logger := logging.NewNoopLogger()
 			address := conf.Address.String()
 
@@ -137,7 +137,7 @@ func Tx(output Output) func(cmd *cli.Cmd) {
 				}
 
 				chainHost := jobs.FirstOf(*chainOpt, fmt.Sprintf("%s:%s", conf.RPC.GRPC.ListenHost, conf.RPC.GRPC.ListenPort))
-				client := def.NewClient(chainHost, conf.Keys.RemoteAddress, true, time.Duration(*timeoutOpt)*time.Second)
+				client := def.NewClient(chainHost, true, time.Duration(*timeoutOpt)*time.Second)
 
 				var rawTx payload.Any
 				var hash string

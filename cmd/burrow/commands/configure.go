@@ -35,10 +35,7 @@ func Configure(output Output) func(cmd *cli.Cmd) {
 		jsonOutOpt := cmd.BoolOpt("j json", false, "Emit config in JSON rather than TOML "+
 			"suitable for further processing")
 
-		keysURLOpt := cmd.StringOpt("k keys-url", "", fmt.Sprintf("Provide keys GRPC address, default: %s",
-			keys.DefaultKeysConfig().RemoteAddress))
-
-		keysDir := cmd.StringOpt("keys-dir", "", "Directory where keys are stored")
+		keysDir := cmd.StringOpt("keys-dir", ".keys", "Directory where keys are stored")
 
 		configTemplateIn := cmd.StringsOpt("config-template-in", nil,
 			"Go text/template input filename to generate config file specified with --config-out")
@@ -69,7 +66,7 @@ func Configure(output Output) func(cmd *cli.Cmd) {
 
 		pool := cmd.BoolOpt("pool", false, "Write config files for all the validators called burrowNNN.toml")
 
-		cmd.Spec = "[--keys-url=<keys URL> | --keys-dir=<keys directory>] " +
+		cmd.Spec = "[--keys-dir=<keys directory>] " +
 			"[ --config-template-in=<text template> --config-out=<output file>]... " +
 			"[--genesis-spec=<GenesisSpec file>] [--separate-genesis-doc=<genesis JSON file>] " +
 			"[--chain-name=<chain name>] [--restore-dump=<dump file>] [--json] [--debug] [--pool] " +
@@ -97,10 +94,6 @@ func Configure(output Output) func(cmd *cli.Cmd) {
 				return
 			}
 
-			if *keysURLOpt != "" {
-				conf.Keys.RemoteAddress = *keysURLOpt
-			}
-
 			if len(*configTemplateIn) != len(*configTemplateOut) {
 				output.Fatalf("--config-template-in and --config-out must be specified the same number of times")
 			}
@@ -114,48 +107,33 @@ func Configure(output Output) func(cmd *cli.Cmd) {
 				if err != nil {
 					output.Fatalf("Could not read GenesisSpec: %v", err)
 				}
-				if conf.Keys.RemoteAddress == "" {
-					dir := conf.Keys.KeysDirectory
-					if *keysDir != "" {
-						dir = *keysDir
-					}
-					keyStore := keys.NewKeyStore(dir, conf.Keys.AllowBadFilePermissions)
+				keyStore := keys.NewKeyStore(*keysDir, true)
 
-					keyClient := keys.NewLocalKeyClient(keyStore, logging.NewNoopLogger())
-					conf.GenesisDoc, err = genesisSpec.GenesisDoc(keyClient)
-					if err != nil {
-						output.Fatalf("could not generate GenesisDoc from GenesisSpec using MockKeyClient: %v", err)
-					}
+				keyClient := keys.NewLocalKeyClient(keyStore, logging.NewNoopLogger())
+				conf.GenesisDoc, err = genesisSpec.GenesisDoc(keyClient)
+				if err != nil {
+					output.Fatalf("could not generate GenesisDoc from GenesisSpec using MockKeyClient: %v", err)
+				}
 
-					allNames, err := keyStore.GetAllNames()
-					if err != nil {
-						output.Fatalf("could get all keys: %v", err)
-					}
+				allNames, err := keyStore.GetAllNames()
+				if err != nil {
+					output.Fatalf("could get all keys: %v", err)
+				}
 
-					for k := range allNames {
-						addr, err := crypto.AddressFromHexString(allNames[k])
-						if err != nil {
-							output.Fatalf("address %s not valid: %v", k, err)
-						}
-						key, err := keyStore.GetKey("", addr[:])
-						if err != nil {
-							output.Fatalf("failed to get key: %s: %v", k, err)
-						}
-						bs, err := json.Marshal(key)
-						if err != nil {
-							output.Fatalf("failed to json marshal key: %s: %v", k, err)
-						}
-						pkg.Keys[addr] = deployment.Key{Name: k, Address: addr, KeyJSON: bs}
-					}
-				} else {
-					keyClient, err := keys.NewRemoteKeyClient(conf.Keys.RemoteAddress, logging.NewNoopLogger())
+				for k := range allNames {
+					addr, err := crypto.AddressFromHexString(allNames[k])
 					if err != nil {
-						output.Fatalf("could not create remote key client: %v", err)
+						output.Fatalf("address %s not valid: %v", k, err)
 					}
-					conf.GenesisDoc, err = genesisSpec.GenesisDoc(keyClient)
+					key, err := keyStore.GetKey("", addr[:])
 					if err != nil {
-						output.Fatalf("could not realise GenesisSpec: %v", err)
+						output.Fatalf("failed to get key: %s: %v", k, err)
 					}
+					bs, err := json.Marshal(key)
+					if err != nil {
+						output.Fatalf("failed to json marshal key: %s: %v", k, err)
+					}
+					pkg.Keys[addr] = deployment.Key{Name: k, Address: addr, KeyJSON: bs}
 				}
 
 			}

@@ -32,9 +32,8 @@ import (
 )
 
 type Client struct {
-	MempoolSigning    bool
-	ChainAddress      string
-	KeysClientAddress string
+	MempoolSigning bool
+	ChainAddress   string
 	// Memoised clients and info
 	chainID               string
 	timeout               time.Duration
@@ -45,12 +44,11 @@ type Client struct {
 	AllSpecs              *abi.Spec
 }
 
-func NewClient(chain, keysClientAddress string, mempoolSigning bool, timeout time.Duration) *Client {
+func NewClient(chain string, mempoolSigning bool, timeout time.Duration) *Client {
 	client := Client{
-		ChainAddress:      chain,
-		MempoolSigning:    mempoolSigning,
-		KeysClientAddress: keysClientAddress,
-		timeout:           timeout,
+		ChainAddress:   chain,
+		MempoolSigning: mempoolSigning,
+		timeout:        timeout,
 	}
 	return &client
 }
@@ -65,14 +63,6 @@ func (c *Client) dial(logger *logging.Logger) error {
 		c.transactClient = rpctransact.NewTransactClient(conn)
 		c.queryClient = rpcquery.NewQueryClient(conn)
 		c.executionEventsClient = rpcevents.NewExecutionEventsClient(conn)
-		if c.KeysClientAddress == "" {
-			logger.InfoMsg("Using mempool signing since no keyClient set, pass --keys to sign locally or elsewhere")
-			c.MempoolSigning = true
-			c.keyClient, err = keys.NewRemoteKeyClient(c.ChainAddress, logger)
-		} else {
-			logger.InfoMsg("Using keys server", "server", c.KeysClientAddress)
-			c.keyClient, err = keys.NewRemoteKeyClient(c.KeysClientAddress, logger)
-		}
 
 		if err != nil {
 			return err

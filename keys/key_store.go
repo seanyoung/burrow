@@ -29,14 +29,6 @@ const (
 	HashSecp256k1 = "btc"
 )
 
-const (
-	DefaultHost     = "localhost"
-	DefaultPort     = "10997"
-	DefaultHashType = "sha256"
-	DefaultKeysDir  = ".keys"
-	TestPort        = "0"
-)
-
 func returnDataDir(dir string) (string, error) {
 	dir = path.Join(dir, "data")
 	dir, err := filepath.Abs(dir)
@@ -184,7 +176,6 @@ func (ks *KeyStore) GetKey(passphrase string, keyAddr []byte) (*Key, error) {
 }
 
 func (ks *KeyStore) AllKeys() ([]*Key, error) {
-
 	dataDirPath, err := returnDataDir(ks.keysDirPath)
 	if err != nil {
 		return nil, err
@@ -258,8 +249,12 @@ func DecryptKey(passphrase string, keyProtected *keyJSON) (*Key, error) {
 
 func (ks *KeyStore) GetAllAddresses() (addresses []string, err error) {
 	ks.Lock()
+	dataDirPath, err := returnDataDir(ks.keysDirPath)
+	if err != nil {
+		return nil, err
+	}
 	defer ks.Unlock()
-	return GetAllAddresses(ks.keysDirPath)
+	return GetAllAddresses(dataDirPath)
 }
 
 func (ks *KeyStore) StoreKey(passphrase string, key *Key) error {
@@ -334,7 +329,7 @@ func (ks *KeyStore) AddName(name string, addr crypto.Address) error {
 	if _, err := os.Stat(path.Join(dataDir, addr.String()+".json")); err != nil {
 		return fmt.Errorf("unknown key %s", addr.String())
 	}
-	return ioutil.WriteFile(path.Join(namesDir, name), addr.Bytes(), 0600)
+	return ioutil.WriteFile(path.Join(namesDir, name), []byte(addr.String()), 0600)
 }
 
 func (ks *KeyStore) RmName(name string) error {

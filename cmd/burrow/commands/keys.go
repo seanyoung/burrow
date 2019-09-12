@@ -13,6 +13,7 @@ import (
 	"github.com/hyperledger/burrow/config/deployment"
 	"github.com/hyperledger/burrow/crypto"
 	"github.com/hyperledger/burrow/keys"
+	"github.com/hyperledger/burrow/proxy"
 	cli "github.com/jawher/mow.cli"
 	"google.golang.org/grpc"
 )
@@ -23,14 +24,14 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 		keysHost := cmd.String(cli.StringOpt{
 			Name:   "host",
 			Desc:   "set the host for talking to the key daemon",
-			Value:  keys.DefaultHost,
+			Value:  proxy.DefaultHost,
 			EnvVar: "BURROW_KEYS_HOST",
 		})
 
 		keysPort := cmd.String(cli.StringOpt{
 			Name:   "port",
 			Desc:   "set the port for key daemon",
-			Value:  keys.DefaultPort,
+			Value:  proxy.DefaultPort,
 			EnvVar: "BURROW_KEYS_PORT",
 		})
 
@@ -80,7 +81,7 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 		})
 
 		cmd.Command("hash", "hash <some data>", func(cmd *cli.Cmd) {
-			hashType := cmd.StringOpt("t type", keys.DefaultHashType, "specify the hash function to use")
+			hashType := cmd.StringOpt("t type", proxy.DefaultHashType, "specify the hash function to use")
 
 			hexByte := cmd.BoolOpt("hex", false, "the input should be hex decoded to bytes first")
 
