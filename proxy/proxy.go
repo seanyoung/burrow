@@ -5,6 +5,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/hyperledger/burrow/acm"
 	"github.com/hyperledger/burrow/crypto"
 	"github.com/hyperledger/burrow/keys"
 	"github.com/hyperledger/burrow/rpc/rpcevents"
@@ -64,32 +65,46 @@ func (p *Proxy) BroadcastTxStream(param *rpctransact.TxEnvelopeParam, stream rpc
 	txEnv := param.GetEnvelope(p.chainID)
 
 	p.sequenceCacheLock.Lock()
+	locked := false
+	defer func() {
+		if locked {
+			p.sequenceCacheLock.Unlock()
+		}
+	}()
 
 	if len(txEnv.Signatories) == 0 {
 		inputs := txEnv.Tx.GetInputs()
+		signers := make([]acm.AddressableSigner, len(inputs))
 
 		// Get sequence number for account
-		for _, input := range inputs {
+		for i, input := range inputs {
 			seq, ok := p.sequenceCache[input.Address]
 			if !ok || time.Since(seq.lastUpdate) > p.cachePeriod {
 				acc, err := p.query.GetAccount(ctx, &rpcquery.GetAccountParam{Address: input.Address})
 				if err != nil {
-					p.sequenceCacheLock.Unlock()
 					// FIXME: log this
 					return err
 				}
 				seq = sequence{sequence: acc.GetSequence(), lastUpdate: time.Now()}
-				p.sequenceCache[input.Address] = seq
+			}
+			seq.sequence++
+			p.sequenceCache[input.Address] = seq
+			input.Sequence = seq.sequence
+			var err error
+			signers[i], err = p.keys.GetKey("", input.Address)
+			if err != nil {
+				return err
 			}
 		}
 
-		// sign stuff
-
+		// sign stuf
 		txEnv.Tx.Rehash()
-	}
 
-	// FIXME: move this until after CheckTx received
-	p.sequenceCacheLock.Unlock()
+		err := txEnv.Sign(signers...)
+		if err != nil {
+			return err
+		}
+	}
 
 	client, err := p.transact.BroadcastTxStream(context.Background(), param)
 	if err != nil {
@@ -100,6 +115,10 @@ func (p *Proxy) BroadcastTxStream(param *rpctransact.TxEnvelopeParam, stream rpc
 		acc, err := client.Recv()
 		if err != nil {
 			return err
+		}
+		if acc.Receipt != nil {
+			p.sequenceCacheLock.Unlock()
+			locked = false
 		}
 		err = stream.Send(acc)
 		if err != nil {

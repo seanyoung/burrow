@@ -22,6 +22,8 @@ func Deploy(output Output) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		chainOpt := cmd.StringOpt("c chain", "127.0.0.1:10997", "chain to be used in IP:PORT format")
 
+		keysDirOpt := cmd.StringOpt("keys-dir", ".keys", "Location of keys used for signing")
+
 		mempoolSigningOpt := cmd.BoolOpt("p mempool-signing", false,
 			"Use Burrow's own keys connection to sign transactions - means that Burrow instance must have access to input account keys. "+
 				"Sequence numbers are set as transactions enter the mempool so concurrent transactions can be sent from same inputs.")
@@ -72,7 +74,7 @@ func Deploy(output Output) func(cmd *cli.Cmd) {
 
 		proposalList := cmd.StringOpt("list-proposals state", "", "List proposals, either all, executed, expired, or current")
 
-		cmd.Spec = "[--chain=<host:port>] [--mempool-signing] [--dir=<root directory>] " +
+		cmd.Spec = "[--chain=<host:port>] [--keys-dir=<keys directory>] [--mempool-signing] [--dir=<root directory>] " +
 			"[--output=<output file>] [--wasm] [--set=<KEY=VALUE>]... [--bin-path=<path>] [--gas=<gas>] " +
 			"[--jobs=<concurrent playbooks>] [--address=<address>] [--fee=<fee>] [--amount=<amount>] [--local-abi] " +
 			"[--verbose] [--debug] [--timeout=<timeout>] " +
@@ -93,6 +95,7 @@ func Deploy(output Output) func(cmd *cli.Cmd) {
 			}
 
 			args.Chain = *chainOpt
+			args.KeysDir = *keysDirOpt
 			args.MempoolSign = *mempoolSigningOpt
 			args.Timeout = *timeoutSecondsOpt
 			args.Path = *pathOpt

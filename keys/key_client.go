@@ -56,7 +56,7 @@ type remoteKeyClient struct {
 }
 
 func (l *localKeyClient) Sign(signAddress crypto.Address, message []byte) (*crypto.Signature, error) {
-	key, err := l.ks.GetKey("", signAddress.Bytes())
+	key, err := l.ks.GetKey("", signAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +65,7 @@ func (l *localKeyClient) Sign(signAddress crypto.Address, message []byte) (*cryp
 }
 
 func (l *localKeyClient) PublicKey(address crypto.Address) (publicKey crypto.PublicKey, err error) {
-	key, err := l.ks.GetKey("", address.Bytes())
+	key, err := l.ks.GetKey("", address)
 	if err != nil {
 		return crypto.PublicKey{}, err
 	}
@@ -100,7 +100,7 @@ func (l *localKeyClient) GetAddressForKeyName(keyName string) (keyAddress crypto
 	}
 
 	if addr, ok := all[keyName]; ok {
-		return crypto.AddressFromHexString(addr)
+		return addr, nil
 	}
 
 	return crypto.Address{}, fmt.Errorf("`%s` is neither an address or a known key name", keyName)

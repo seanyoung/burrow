@@ -44,7 +44,7 @@ func (p *Proxy) Export(ctx context.Context, in *keys.ExportRequest) (*keys.Expor
 	}
 
 	// No phrase needed for public key. I hope.
-	key, err := p.keys.GetKey(in.GetPassphrase(), addr.Bytes())
+	key, err := p.keys.GetKey(in.GetPassphrase(), addr)
 	if err != nil {
 		return nil, err
 	}
@@ -64,12 +64,12 @@ func (p *Proxy) PublicKey(ctx context.Context, in *keys.PubRequest) (*keys.PubRe
 	}
 
 	// No phrase needed for public key. I hope.
-	key, err := p.keys.GetKey("", addr.Bytes())
+	key, err := p.keys.GetKey("", addr)
 	if key == nil {
 		return nil, err
 	}
 
-	return &keys.PubResponse{CurveType: key.CurveType.String(), PublicKey: key.Pubkey()}, nil
+	return &keys.PubResponse{CurveType: key.CurveType.String(), PublicKey: key.GetPublicKey().PublicKey}, nil
 }
 
 func (p *Proxy) Sign(ctx context.Context, in *keys.SignRequest) (*keys.SignResponse, error) {
@@ -78,7 +78,7 @@ func (p *Proxy) Sign(ctx context.Context, in *keys.SignRequest) (*keys.SignRespo
 		return nil, err
 	}
 
-	key, err := p.keys.GetKey(in.GetPassphrase(), addr.Bytes())
+	key, err := p.keys.GetKey(in.GetPassphrase(), addr)
 	if err != nil {
 		return nil, err
 	}
@@ -219,13 +219,18 @@ func (p *Proxy) List(ctx context.Context, in *keys.ListRequest) (*keys.ListRespo
 
 	if in.KeyName != "" {
 		if addr, ok := byname[in.KeyName]; ok {
-			list = append(list, &keys.KeyID{KeyName: getAddressNames(addr, byname), Address: addr})
+			list = append(list, &keys.KeyID{
+				KeyName: getAddressNames(addr, byname),
+				Address: addr.String(),
+			})
 		} else {
 			if addr, err := crypto.AddressFromHexString(in.KeyName); err == nil {
-				_, err := p.keys.GetKey("", addr.Bytes())
+				_, err := p.keys.GetKey("", addr)
 				if err == nil {
-					address := addr.String()
-					list = append(list, &keys.KeyID{Address: address, KeyName: getAddressNames(address, byname)})
+					list = append(list, &keys.KeyID{
+						Address: addr.String(),
+						KeyName: getAddressNames(addr, byname)},
+					)
 				}
 			}
 		}
@@ -237,14 +242,17 @@ func (p *Proxy) List(ctx context.Context, in *keys.ListRequest) (*keys.ListRespo
 		}
 
 		for _, addr := range addrs {
-			list = append(list, &keys.KeyID{KeyName: getAddressNames(addr, byname), Address: addr})
+			list = append(list, &keys.KeyID{
+				KeyName: getAddressNames(addr, byname),
+				Address: addr.String(),
+			})
 		}
 	}
 
 	return &keys.ListResponse{Key: list}, nil
 }
 
-func getAddressNames(address string, byname map[string]string) []string {
+func getAddressNames(address crypto.Address, byname map[string]crypto.Address) []string {
 	names := make([]string, 0)
 
 	for name, addr := range byname {

@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/hyperledger/burrow/acm"
+
 	"github.com/hyperledger/burrow/crypto"
 	"github.com/tmthrgd/go-hex"
 	"golang.org/x/crypto/scrypt"
@@ -29,34 +31,13 @@ const (
 	HashSecp256k1 = "btc"
 )
 
-func returnDataDir(dir string) (string, error) {
-	dir = path.Join(dir, "data")
-	dir, err := filepath.Abs(dir)
-	if err != nil {
-		return "", err
-	}
-	return dir, checkMakeDataDir(dir)
-}
+var _ acm.AddressableSigner = (*Key)(nil)
 
-func returnNamesDir(dir string) (string, error) {
-	dir = path.Join(dir, "names")
-	dir, err := filepath.Abs(dir)
-	if err != nil {
-		return "", err
-	}
-	return dir, checkMakeDataDir(dir)
-}
-
-//----------------------------------------------------------------
-// manage names for keys
-func checkMakeDataDir(dir string) error {
-	if _, err := os.Stat(dir); err != nil {
-		err = os.MkdirAll(dir, 0700)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+type Key struct {
+	CurveType  crypto.CurveType
+	Address    crypto.Address
+	PublicKey  crypto.PublicKey
+	PrivateKey crypto.PrivateKey
 }
 
 //-----------------------------------------------------------------------------
@@ -84,7 +65,7 @@ func (k *Key) MarshalJSON() (j []byte, err error) {
 	jStruct := keyJSON{
 		CurveType:   k.CurveType.String(),
 		Address:     hex.EncodeUpperToString(k.Address[:]),
-		PublicKey:   hex.EncodeUpperToString(k.Pubkey()),
+		PublicKey:   hex.EncodeUpperToString(k.PublicKey.PublicKey),
 		AddressHash: k.PublicKey.AddressHashType(),
 		PrivateKey:  privateKeyJSON{Crypto: CryptoNone, Plain: hex.EncodeUpperToString(k.PrivateKey.RawBytes())},
 	}
@@ -150,14 +131,26 @@ func (ks *KeyStore) Gen(passphrase string, curveType crypto.CurveType) (key *Key
 	return key, err
 }
 
-func (ks *KeyStore) GetKey(passphrase string, keyAddr []byte) (*Key, error) {
+func (ks *KeyStore) GetKey(passphrase string, addr crypto.Address) (*Key, error) {
 	ks.Lock()
 	defer ks.Unlock()
 	dataDirPath, err := returnDataDir(ks.keysDirPath)
 	if err != nil {
 		return nil, err
 	}
-	fileContent, err := ks.GetKeyFile(dataDirPath, keyAddr)
+
+	filename := path.Join(dataDirPath, addr.String()+".json")
+	fileInfo, err := os.Stat(filename)
+	if err != nil {
+		return nil, err
+	}
+	if (uint32(fileInfo.Mode()) & 0077) != 0 {
+		if !ks.AllowBadFilePermissions {
+			return nil, fmt.Errorf("file %s should be accessible by user only", filename)
+		}
+	}
+
+	fileContent, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -173,33 +166,6 @@ func (ks *KeyStore) GetKey(passphrase string, keyAddr []byte) (*Key, error) {
 		err = key.UnmarshalJSON(fileContent)
 		return key, err
 	}
-}
-
-func (ks *KeyStore) AllKeys() ([]*Key, error) {
-	dataDirPath, err := returnDataDir(ks.keysDirPath)
-	if err != nil {
-		return nil, err
-	}
-	addrs, err := GetAllAddresses(dataDirPath)
-	if err != nil {
-		return nil, err
-	}
-
-	var list []*Key
-
-	for _, addr := range addrs {
-		addrB, err := crypto.AddressFromHexString(addr)
-		if err != nil {
-			return nil, err
-		}
-		k, err := ks.GetKey("", addrB[:])
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, k)
-	}
-
-	return list, nil
 }
 
 func DecryptKey(passphrase string, keyProtected *keyJSON) (*Key, error) {
@@ -247,14 +213,28 @@ func DecryptKey(passphrase string, keyProtected *keyJSON) (*Key, error) {
 	return k, nil
 }
 
-func (ks *KeyStore) GetAllAddresses() (addresses []string, err error) {
+func (ks *KeyStore) GetAllAddresses() (addresses []crypto.Address, err error) {
 	ks.Lock()
 	dataDirPath, err := returnDataDir(ks.keysDirPath)
 	if err != nil {
 		return nil, err
 	}
 	defer ks.Unlock()
-	return GetAllAddresses(dataDirPath)
+
+	fileInfos, err := ioutil.ReadDir(dataDirPath)
+	if err != nil {
+		return nil, err
+	}
+	addresses = make([]crypto.Address, len(fileInfos))
+	for i, fileInfo := range fileInfos {
+		basename := strings.TrimSuffix(fileInfo.Name(), ".json")
+		addr, err := crypto.AddressFromHexString(basename)
+		if err != nil {
+			return nil, err
+		}
+		addresses[i] = addr
+	}
+	return addresses, err
 }
 
 func (ks *KeyStore) StoreKey(passphrase string, key *Key) error {
@@ -273,7 +253,7 @@ func (ks *KeyStore) StoreKeyRaw(addr crypto.Address, keyJson []byte) error {
 		return err
 	}
 
-	return WriteKeyFile(addr.Bytes(), dataDirPath, keyJson)
+	return writeKeyFile(addr.Bytes(), dataDirPath, keyJson)
 }
 
 func (ks *KeyStore) StoreKeyPlain(key *Key) (err error) {
@@ -285,8 +265,7 @@ func (ks *KeyStore) StoreKeyPlain(key *Key) (err error) {
 	if err != nil {
 		return err
 	}
-	err = WriteKeyFile(key.Address[:], dataDirPath, keyJSON)
-	return err
+	return writeKeyFile(key.Address[:], dataDirPath, keyJSON)
 }
 
 func (ks *KeyStore) GetName(name string) (crypto.Address, error) {
@@ -381,7 +360,7 @@ func (ks *KeyStore) StoreKeyEncrypted(passphrase string, key *Key) error {
 	keyStruct := keyJSON{
 		CurveType:   key.CurveType.String(),
 		Address:     hex.EncodeUpperToString(key.Address[:]),
-		PublicKey:   hex.EncodeUpperToString(key.Pubkey()),
+		PublicKey:   hex.EncodeUpperToString(key.PublicKey.PublicKey),
 		AddressHash: key.PublicKey.AddressHashType(),
 		PrivateKey:  cipherStruct,
 	}
@@ -394,33 +373,10 @@ func (ks *KeyStore) StoreKeyEncrypted(passphrase string, key *Key) error {
 		return err
 	}
 
-	return WriteKeyFile(key.Address[:], dataDirPath, keyJSON)
+	return writeKeyFile(key.Address[:], dataDirPath, keyJSON)
 }
 
-func (ks *KeyStore) DeleteKey(passphrase string, keyAddr []byte) (err error) {
-	dataDirPath, err := returnDataDir(ks.keysDirPath)
-	if err != nil {
-		return err
-	}
-	keyDirPath := path.Join(dataDirPath, strings.ToUpper(hex.EncodeToString(keyAddr))+".json")
-	return os.Remove(keyDirPath)
-}
-
-func (ks *KeyStore) GetKeyFile(dataDirPath string, keyAddr []byte) (fileContent []byte, err error) {
-	filename := path.Join(dataDirPath, strings.ToUpper(hex.EncodeToString(keyAddr))+".json")
-	fileInfo, err := os.Stat(filename)
-	if err != nil {
-		return nil, err
-	}
-	if (uint32(fileInfo.Mode()) & 0077) != 0 {
-		if !ks.AllowBadFilePermissions {
-			return nil, fmt.Errorf("file %s should be accessible by user only", filename)
-		}
-	}
-	return ioutil.ReadFile(filename)
-}
-
-func WriteKeyFile(addr []byte, dataDirPath string, content []byte) (err error) {
+func writeKeyFile(addr []byte, dataDirPath string, content []byte) (err error) {
 	addrHex := strings.ToUpper(hex.EncodeToString(addr))
 	keyFilePath := path.Join(dataDirPath, addrHex+".json")
 	err = os.MkdirAll(dataDirPath, 0700) // read, write and dir search for user
@@ -430,12 +386,12 @@ func WriteKeyFile(addr []byte, dataDirPath string, content []byte) (err error) {
 	return ioutil.WriteFile(keyFilePath, content, 0600) // read, write for user
 }
 
-func (ks *KeyStore) GetAllNames() (map[string]string, error) {
+func (ks *KeyStore) GetAllNames() (map[string]crypto.Address, error) {
 	dir, err := returnNamesDir(ks.keysDirPath)
 	if err != nil {
 		return nil, err
 	}
-	names := make(map[string]string)
+	names := make(map[string]crypto.Address)
 	fs, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return nil, err
@@ -445,29 +401,14 @@ func (ks *KeyStore) GetAllNames() (map[string]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		names[f.Name()] = string(b)
+
+		addr, err := crypto.AddressFromHexString(string(b))
+		if err != nil {
+			return nil, err
+		}
+		names[f.Name()] = addr
 	}
 	return names, nil
-}
-
-func GetAllAddresses(dataDirPath string) (addresses []string, err error) {
-	fileInfos, err := ioutil.ReadDir(dataDirPath)
-	if err != nil {
-		return nil, err
-	}
-	addresses = make([]string, len(fileInfos))
-	for i, fileInfo := range fileInfos {
-		addr := strings.TrimSuffix(fileInfo.Name(), ".json")
-		addresses[i] = addr
-	}
-	return addresses, err
-}
-
-type Key struct {
-	CurveType  crypto.CurveType
-	Address    crypto.Address
-	PublicKey  crypto.PublicKey
-	PrivateKey crypto.PrivateKey
 }
 
 func NewKey(typ crypto.CurveType) (*Key, error) {
@@ -484,8 +425,16 @@ func NewKey(typ crypto.CurveType) (*Key, error) {
 	}, nil
 }
 
-func (k *Key) Pubkey() []byte {
-	return k.PublicKey.PublicKey
+func (k *Key) GetAddress() crypto.Address {
+	return k.Address
+}
+
+func (k *Key) GetPublicKey() crypto.PublicKey {
+	return k.PublicKey
+}
+
+func (k *Key) Sign(msg []byte) (*crypto.Signature, error) {
+	return k.PrivateKey.Sign(msg)
 }
 
 func NewKeyFromPub(curveType crypto.CurveType, PubKeyBytes []byte) (*Key, error) {
@@ -524,6 +473,36 @@ func IsValidKeyJson(j []byte) []byte {
 	if e1 == nil {
 		addr, _ := hex.DecodeString(j1.Address)
 		return addr
+	}
+	return nil
+}
+
+func returnDataDir(dir string) (string, error) {
+	dir = path.Join(dir, "data")
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	return dir, checkMakeDataDir(dir)
+}
+
+func returnNamesDir(dir string) (string, error) {
+	dir = path.Join(dir, "names")
+	dir, err := filepath.Abs(dir)
+	if err != nil {
+		return "", err
+	}
+	return dir, checkMakeDataDir(dir)
+}
+
+//----------------------------------------------------------------
+// manage names for keys
+func checkMakeDataDir(dir string) error {
+	if _, err := os.Stat(dir); err != nil {
+		err = os.MkdirAll(dir, 0700)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }

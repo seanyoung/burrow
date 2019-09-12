@@ -309,7 +309,7 @@ func InternalProxyLauncher(kern *Kernel, conf *proxy.ProxyConfig) process.Launch
 			if err != nil {
 				return nil, err
 			}
-			err = kern.registerListener(GRPCProcessName, listener)
+			err = kern.registerListener(InternalProxyName, listener)
 			if err != nil {
 				return nil, err
 			}

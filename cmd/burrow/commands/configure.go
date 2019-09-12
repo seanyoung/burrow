@@ -120,20 +120,16 @@ func Configure(output Output) func(cmd *cli.Cmd) {
 					output.Fatalf("could get all keys: %v", err)
 				}
 
-				for k := range allNames {
-					addr, err := crypto.AddressFromHexString(allNames[k])
+				for name, addr := range allNames {
+					key, err := keyStore.GetKey("", addr)
 					if err != nil {
-						output.Fatalf("address %s not valid: %v", k, err)
-					}
-					key, err := keyStore.GetKey("", addr[:])
-					if err != nil {
-						output.Fatalf("failed to get key: %s: %v", k, err)
+						output.Fatalf("failed to get key: %s: %v", name, err)
 					}
 					bs, err := json.Marshal(key)
 					if err != nil {
-						output.Fatalf("failed to json marshal key: %s: %v", k, err)
+						output.Fatalf("failed to json marshal key: %s: %v", name, err)
 					}
-					pkg.Keys[addr] = deployment.Key{Name: k, Address: addr, KeyJSON: bs}
+					pkg.Keys[addr] = deployment.Key{Name: name, Address: addr, KeyJSON: bs}
 				}
 
 			}

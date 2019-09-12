@@ -22,6 +22,7 @@ func Tx(output Output) func(cmd *cli.Cmd) {
 	return func(cmd *cli.Cmd) {
 		configOpts := addConfigOptions(cmd)
 		chainOpt := cmd.StringOpt("chain", "", "chain to be used in IP:PORT format")
+		keysDirOpt := cmd.StringOpt("keys-dir", ".keys", "Directory with key store")
 		timeoutOpt := cmd.IntOpt("t timeout", 5, "Timeout in seconds")
 		cmd.Spec += "[--chain=<ip>] [--timeout=<seconds>]"
 		// we don't want config sourcing logs
@@ -38,7 +39,7 @@ func Tx(output Output) func(cmd *cli.Cmd) {
 			}
 
 			chainHost := jobs.FirstOf(*chainOpt, fmt.Sprintf("%s:%s", conf.RPC.GRPC.ListenHost, conf.RPC.GRPC.ListenPort))
-			client := def.NewClient(chainHost, true, time.Duration(*timeoutOpt)*time.Second)
+			client := def.NewClient(chainHost, *keysDirOpt, true, time.Duration(*timeoutOpt)*time.Second)
 			logger := logging.NewNoopLogger()
 			address := conf.Address.String()
 
@@ -137,7 +138,7 @@ func Tx(output Output) func(cmd *cli.Cmd) {
 				}
 
 				chainHost := jobs.FirstOf(*chainOpt, fmt.Sprintf("%s:%s", conf.RPC.GRPC.ListenHost, conf.RPC.GRPC.ListenPort))
-				client := def.NewClient(chainHost, true, time.Duration(*timeoutOpt)*time.Second)
+				client := def.NewClient(chainHost, *keysDirOpt, true, time.Duration(*timeoutOpt)*time.Second)
 
 				var rawTx payload.Any
 				var hash string
