@@ -139,7 +139,7 @@ func (c *Client) ParseAddress(key string, logger *logging.Logger) (crypto.Addres
 	if len(resp.Key) != 1 {
 		return crypto.Address{}, fmt.Errorf("key %s not found", key)
 	}
-	return crypto.AddressFromHexString(resp.Key[0].Address)
+	return resp.Key[0].Address, nil
 }
 
 func (c *Client) GetAccount(address crypto.Address) (*acm.Account, error) {
@@ -290,7 +290,7 @@ func (c *Client) CreateKey(keyName, curveTypeString string, logger *logging.Logg
 	})
 	if err == nil {
 		resp, err := c.keysClient.PublicKey(ctx, &keys.PubRequest{
-			Address: resp.Address,
+			Address: &resp.Address,
 		})
 		if err != nil {
 			return crypto.PublicKey{}, err
@@ -455,7 +455,7 @@ func (c *Client) PublicKeyFromAddress(address *crypto.Address) (crypto.PublicKey
 	defer cancel()
 
 	resp, err := c.keysClient.PublicKey(ctx, &keys.PubRequest{
-		Address: address.String(),
+		Address: address,
 	})
 	if err != nil {
 		return crypto.PublicKey{}, err

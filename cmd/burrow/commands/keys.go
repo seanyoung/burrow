@@ -76,7 +76,7 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 					output.Fatalf("failed to generate key: %v", err)
 				}
 
-				fmt.Printf("%v\n", resp.GetAddress())
+				fmt.Printf("%v\n", resp.Address)
 			}
 		})
 
@@ -118,23 +118,26 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 			keyTemplate := cmd.StringOpt("t template", deployment.DefaultKeysExportFormat, "template for export key")
 
 			cmd.Action = func() {
+				var addr *crypto.Address
+				var err error
+				if keyAddr != nil {
+					*addr, err = crypto.AddressFromHexString(*keyAddr)
+					if err != nil {
+						output.Fatalf("address `%s` not in correct format: %v", keyAddr, err)
+					}
+				}
 				c := grpcKeysClient(output)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				resp, err := c.Export(ctx, &keys.ExportRequest{Passphrase: *passphrase, Name: *keyName, Address: *keyAddr})
+				resp, err := c.Export(ctx, &keys.ExportRequest{Passphrase: *passphrase, Name: *keyName, Address: addr})
 				if err != nil {
 					output.Fatalf("failed to export key: %v", err)
-				}
-
-				addr, err := crypto.AddressFromBytes(resp.GetAddress())
-				if err != nil {
-					output.Fatalf("failed to convert address: %v", err)
 				}
 
 				key := deployment.Key{
 					Name:       *keyName,
 					CurveType:  resp.GetCurveType(),
-					Address:    addr,
+					Address:    resp.Address,
 					PublicKey:  resp.GetPublickey(),
 					PrivateKey: resp.GetPrivatekey(),
 				}
@@ -180,7 +183,7 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 						output.Fatalf("failed to import json key: %v", err)
 					}
 
-					fmt.Printf("%s\n", resp.GetAddress())
+					fmt.Printf("%v\n", resp.Address)
 				} else {
 					privKeyBytes, err = hex.DecodeString(*key)
 					if err != nil {
@@ -191,21 +194,29 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 						output.Fatalf("failed to import json key: %v", err)
 					}
 
-					fmt.Printf("%s\n", resp.GetAddress())
-
+					fmt.Printf("%v\n", resp.Address)
 				}
 			}
 		})
 
 		cmd.Command("pub", "public key", func(cmd *cli.Cmd) {
 			name := cmd.StringOpt("name", "", "name of key to use")
-			addr := cmd.StringOpt("addr", "", "address of key to use")
+			keyAddr := cmd.StringOpt("addr", "", "address of key to use")
 
 			cmd.Action = func() {
+				var addr *crypto.Address
+				var err error
+				if keyAddr != nil {
+					*addr, err = crypto.AddressFromHexString(*keyAddr)
+					if err != nil {
+						output.Fatalf("address `%s` not in correct format: %v", keyAddr, err)
+					}
+				}
+
 				c := grpcKeysClient(output)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				resp, err := c.PublicKey(ctx, &keys.PubRequest{Name: *name, Address: *addr})
+				resp, err := c.PublicKey(ctx, &keys.PubRequest{Name: *name, Address: addr})
 				if err != nil {
 					output.Fatalf("failed to get public key: %v", err)
 				}
@@ -216,11 +227,19 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 
 		cmd.Command("sign", "sign <some data>", func(cmd *cli.Cmd) {
 			name := cmd.StringOpt("name", "", "name of key to use")
-			addr := cmd.StringOpt("addr", "", "address of key to use")
+			keyAddr := cmd.StringOpt("addr", "", "address of key to use")
 			msg := cmd.StringArg("MSG", "", "message to sign")
 			passphrase := cmd.StringOpt("passphrase", "", "passphrase for encrypted key")
 
 			cmd.Action = func() {
+				var addr *crypto.Address
+				var err error
+				if keyAddr != nil {
+					*addr, err = crypto.AddressFromHexString(*keyAddr)
+					if err != nil {
+						output.Fatalf("address `%s` not in correct format: %v", keyAddr, err)
+					}
+				}
 				message, err := hex.DecodeString(*msg)
 				if err != nil {
 					output.Fatalf("failed to hex decode message: %v", err)
@@ -229,11 +248,11 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 				c := grpcKeysClient(output)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				resp, err := c.Sign(ctx, &keys.SignRequest{Passphrase: *passphrase, Name: *name, Address: *addr, Message: message})
+				resp, err := c.Sign(ctx, &keys.SignRequest{Passphrase: *passphrase, Name: *name, Address: addr, Message: message})
 				if err != nil {
 					output.Fatalf("failed to get public key: %v", err)
 				}
-				fmt.Printf("%X\n", resp.GetSignature().Signature)
+				fmt.Printf("%X\n", resp.Signature.Signature)
 			}
 		})
 
@@ -274,7 +293,7 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 				defer cancel()
 				_, err = c.Verify(ctx, &keys.VerifyRequest{
 					PublicKey: publickey,
-					Signature: signature,
+					Signature: *signature,
 					Message:   message,
 				})
 				if err != nil {
@@ -286,13 +305,18 @@ func Keys(output Output) func(cmd *cli.Cmd) {
 
 		cmd.Command("name", "add key name to addr", func(cmd *cli.Cmd) {
 			keyname := cmd.StringArg("NAME", "", "name of key to use")
-			addr := cmd.StringArg("ADDR", "", "address of key to use")
+			keyaddr := cmd.StringArg("ADDR", "", "address of key to use")
 
 			cmd.Action = func() {
+				addr, err := crypto.AddressFromHexString(*keyaddr)
+				if err != nil {
+					output.Fatalf("address `%s` not in correct format: %v", keyaddr, err)
+				}
+
 				c := grpcKeysClient(output)
 				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
-				_, err := c.AddName(ctx, &keys.AddNameRequest{Keyname: *keyname, Address: *addr})
+				_, err = c.AddName(ctx, &keys.AddNameRequest{Keyname: *keyname, Address: addr})
 				if err != nil {
 					output.Fatalf("failed to add name to addr: %v", err)
 				}

@@ -114,20 +114,20 @@ func (l *localKeyClient) HealthCheck() error {
 func (l *remoteKeyClient) Sign(signAddress crypto.Address, message []byte) (*crypto.Signature, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	req := SignRequest{Address: signAddress.String(), Message: message}
+	req := SignRequest{Address: &signAddress, Message: message}
 	l.logger.TraceMsg("Sending Sign request to remote key server: ", fmt.Sprintf("%v", req))
 	resp, err := l.kc.Sign(ctx, &req)
 	if err != nil {
 		l.logger.TraceMsg("Received Sign request error response: ", err)
 		return nil, err
 	}
-	return resp.GetSignature(), nil
+	return &resp.Signature, nil
 }
 
 func (l *remoteKeyClient) PublicKey(address crypto.Address) (publicKey crypto.PublicKey, err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	req := PubRequest{Address: address.String()}
+	req := PubRequest{Address: &address}
 	l.logger.TraceMsg("Sending PublicKey request to remote key server: ", fmt.Sprintf("%v", req))
 	resp, err := l.kc.PublicKey(ctx, &req)
 	if err != nil {
@@ -154,7 +154,7 @@ func (l *remoteKeyClient) Generate(keyName string, curveType crypto.CurveType) (
 		return crypto.Address{}, err
 	}
 	l.logger.TraceMsg("Received Generate response to remote key server: ", fmt.Sprintf("%v", resp))
-	return crypto.AddressFromHexString(resp.GetAddress())
+	return resp.Address, nil
 }
 
 func (l *remoteKeyClient) GetAddressForKeyName(keyName string) (keyAddress crypto.Address, err error) {
@@ -170,7 +170,7 @@ func (l *remoteKeyClient) GetAddressForKeyName(keyName string) (keyAddress crypt
 	}
 
 	if len(key.Key) == 1 {
-		return crypto.AddressFromHexString(key.Key[0].Address)
+		return key.Key[0].Address, nil
 	}
 
 	return crypto.Address{}, fmt.Errorf("`%s` is neither an address or a known key name", keyName)

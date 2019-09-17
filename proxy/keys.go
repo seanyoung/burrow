@@ -34,13 +34,19 @@ func (p *Proxy) GenerateKey(ctx context.Context, in *keys.GenRequest) (*keys.Gen
 		}
 	}
 
-	return &keys.GenResponse{Address: key.Address.String()}, nil
+	return &keys.GenResponse{Address: key.Address}, nil
 }
 
 func (p *Proxy) Export(ctx context.Context, in *keys.ExportRequest) (*keys.ExportResponse, error) {
-	addr, err := p.keys.GetNameAddr(in.GetName(), in.GetAddress())
-	if err != nil {
-		return nil, err
+	var addr crypto.Address
+	var err error
+	if in.Address != nil {
+		addr = *in.Address
+	} else {
+		addr, err = p.keys.GetName(in.GetName())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// No phrase needed for public key. I hope.
@@ -50,7 +56,7 @@ func (p *Proxy) Export(ctx context.Context, in *keys.ExportRequest) (*keys.Expor
 	}
 
 	return &keys.ExportResponse{
-		Address:    addr.Bytes(),
+		Address:    addr,
 		CurveType:  key.CurveType.String(),
 		Publickey:  key.PublicKey.PublicKey[:],
 		Privatekey: key.PrivateKey.PrivateKey[:],
@@ -58,9 +64,15 @@ func (p *Proxy) Export(ctx context.Context, in *keys.ExportRequest) (*keys.Expor
 }
 
 func (p *Proxy) PublicKey(ctx context.Context, in *keys.PubRequest) (*keys.PubResponse, error) {
-	addr, err := p.keys.GetNameAddr(in.GetName(), in.GetAddress())
-	if err != nil {
-		return nil, err
+	var addr crypto.Address
+	var err error
+	if in.Address != nil {
+		addr = *in.Address
+	} else {
+		addr, err = p.keys.GetName(in.GetName())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// No phrase needed for public key. I hope.
@@ -73,9 +85,15 @@ func (p *Proxy) PublicKey(ctx context.Context, in *keys.PubRequest) (*keys.PubRe
 }
 
 func (p *Proxy) Sign(ctx context.Context, in *keys.SignRequest) (*keys.SignResponse, error) {
-	addr, err := p.keys.GetNameAddr(in.GetName(), in.GetAddress())
-	if err != nil {
-		return nil, err
+	var addr crypto.Address
+	var err error
+	if in.Address != nil {
+		addr = *in.Address
+	} else {
+		addr, err = p.keys.GetName(in.GetName())
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	key, err := p.keys.GetKey(in.GetPassphrase(), addr)
@@ -87,7 +105,7 @@ func (p *Proxy) Sign(ctx context.Context, in *keys.SignRequest) (*keys.SignRespo
 	if err != nil {
 		return nil, err
 	}
-	return &keys.SignResponse{Signature: sig}, err
+	return &keys.SignResponse{Signature: *sig}, err
 }
 
 func (p *Proxy) Verify(ctx context.Context, in *keys.VerifyRequest) (*keys.VerifyResponse, error) {
@@ -97,16 +115,13 @@ func (p *Proxy) Verify(ctx context.Context, in *keys.VerifyRequest) (*keys.Verif
 	if in.GetMessage() == nil {
 		return nil, fmt.Errorf("must provide a message")
 	}
-	if in.GetSignature() == nil {
-		return nil, fmt.Errorf("must provide a signature")
-	}
 
-	sig := in.GetSignature()
+	sig := in.Signature
 	pubkey, err := crypto.PublicKeyFromBytes(in.GetPublicKey(), sig.GetCurveType())
 	if err != nil {
 		return nil, err
 	}
-	err = pubkey.Verify(in.GetMessage(), sig)
+	err = pubkey.Verify(in.GetMessage(), &sig)
 	if err != nil {
 		return nil, err
 	}
@@ -132,10 +147,12 @@ func (p *Proxy) Hash(ctx context.Context, in *keys.HashRequest) (*keys.HashRespo
 }
 
 func (p *Proxy) ImportJSON(ctx context.Context, in *keys.ImportJSONRequest) (*keys.ImportResponse, error) {
+	var addr crypto.Address
+	var err error
 	keyJSON := []byte(in.GetJSON())
-	addr := keys.IsValidKeyJson(keyJSON)
-	if addr != nil {
-		addr, err := crypto.AddressFromBytes(addr)
+	addrB := keys.IsValidKeyJson(keyJSON)
+	if addrB != nil {
+		addr, err = crypto.AddressFromBytes(addrB)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +174,7 @@ func (p *Proxy) ImportJSON(ctx context.Context, in *keys.ImportJSONRequest) (*ke
 			return nil, err
 		}
 
-		addr, err = hex.DecodeString(j1.Address)
+		addr, err = crypto.AddressFromHexString(j1.Address)
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +199,7 @@ func (p *Proxy) ImportJSON(ctx context.Context, in *keys.ImportJSONRequest) (*ke
 			return nil, err
 		}
 	}
-	return &keys.ImportResponse{Address: hex.EncodeUpperToString(addr)}, nil
+	return &keys.ImportResponse{Address: addr}, nil
 }
 
 func (p *Proxy) Import(ctx context.Context, in *keys.ImportRequest) (*keys.ImportResponse, error) {
@@ -206,7 +223,7 @@ func (p *Proxy) Import(ctx context.Context, in *keys.ImportRequest) (*keys.Impor
 			return nil, err
 		}
 	}
-	return &keys.ImportResponse{Address: key.Address.String()}, nil
+	return &keys.ImportResponse{Address: key.Address}, nil
 }
 
 func (p *Proxy) List(ctx context.Context, in *keys.ListRequest) (*keys.ListResponse, error) {
@@ -221,14 +238,14 @@ func (p *Proxy) List(ctx context.Context, in *keys.ListRequest) (*keys.ListRespo
 		if addr, ok := byname[in.KeyName]; ok {
 			list = append(list, &keys.KeyID{
 				KeyName: getAddressNames(addr, byname),
-				Address: addr.String(),
+				Address: addr,
 			})
 		} else {
 			if addr, err := crypto.AddressFromHexString(in.KeyName); err == nil {
 				_, err := p.keys.GetKey("", addr)
 				if err == nil {
 					list = append(list, &keys.KeyID{
-						Address: addr.String(),
+						Address: addr,
 						KeyName: getAddressNames(addr, byname)},
 					)
 				}
@@ -244,7 +261,7 @@ func (p *Proxy) List(ctx context.Context, in *keys.ListRequest) (*keys.ListRespo
 		for _, addr := range addrs {
 			list = append(list, &keys.KeyID{
 				KeyName: getAddressNames(addr, byname),
-				Address: addr.String(),
+				Address: addr,
 			})
 		}
 	}
@@ -277,10 +294,5 @@ func (p *Proxy) AddName(ctx context.Context, in *keys.AddNameRequest) (*keys.Add
 		return nil, fmt.Errorf("please specify a name")
 	}
 
-	addr, err := crypto.AddressFromHexString(in.GetAddress())
-	if err != nil {
-		return nil, err
-	}
-
-	return &keys.AddNameResponse{}, p.keys.AddName(in.GetKeyname(), addr)
+	return &keys.AddNameResponse{}, p.keys.AddName(in.GetKeyname(), in.Address)
 }

@@ -282,20 +282,6 @@ func (ks *KeyStore) GetName(name string) (crypto.Address, error) {
 	return crypto.AddressFromHexString(string(b))
 }
 
-func (ks *KeyStore) GetNameAddr(name, address string) (crypto.Address, error) {
-	dir, err := returnNamesDir(ks.keysDirPath)
-	if err != nil {
-		return crypto.AddressFromHexString(address)
-	}
-
-	b, err := ioutil.ReadFile(path.Join(dir, name))
-	if err != nil {
-		return crypto.AddressFromHexString(address)
-	}
-
-	return crypto.AddressFromHexString(string(b))
-}
-
 func (ks *KeyStore) AddName(name string, addr crypto.Address) error {
 	namesDir, err := returnNamesDir(ks.keysDirPath)
 	if err != nil {
