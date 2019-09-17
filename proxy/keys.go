@@ -3,7 +3,6 @@ package proxy
 import (
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"hash"
 
@@ -35,32 +34,6 @@ func (p *Proxy) GenerateKey(ctx context.Context, in *keys.GenRequest) (*keys.Gen
 	}
 
 	return &keys.GenResponse{Address: key.Address}, nil
-}
-
-func (p *Proxy) Export(ctx context.Context, in *keys.ExportRequest) (*keys.ExportResponse, error) {
-	var addr crypto.Address
-	var err error
-	if in.Address != nil {
-		addr = *in.Address
-	} else {
-		addr, err = p.keys.GetName(in.GetName())
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	// No phrase needed for public key. I hope.
-	key, err := p.keys.GetKey(in.GetPassphrase(), addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return &keys.ExportResponse{
-		Address:    addr,
-		CurveType:  key.CurveType.String(),
-		Publickey:  key.PublicKey.PublicKey[:],
-		Privatekey: key.PrivateKey.PrivateKey[:],
-	}, nil
 }
 
 func (p *Proxy) PublicKey(ctx context.Context, in *keys.PubRequest) (*keys.PubResponse, error) {
@@ -147,59 +120,8 @@ func (p *Proxy) Hash(ctx context.Context, in *keys.HashRequest) (*keys.HashRespo
 }
 
 func (p *Proxy) ImportJSON(ctx context.Context, in *keys.ImportJSONRequest) (*keys.ImportResponse, error) {
-	var addr crypto.Address
-	var err error
-	keyJSON := []byte(in.GetJSON())
-	addrB := keys.IsValidKeyJson(keyJSON)
-	if addrB != nil {
-		addr, err = crypto.AddressFromBytes(addrB)
-		if err != nil {
-			return nil, err
-		}
-		err = p.keys.StoreKeyRaw(addr, keyJSON)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		j1 := new(struct {
-			CurveType   string
-			Address     string
-			PublicKey   string
-			AddressHash string
-			PrivateKey  string
-		})
-
-		err := json.Unmarshal([]byte(in.GetJSON()), &j1)
-		if err != nil {
-			return nil, err
-		}
-
-		addr, err = crypto.AddressFromHexString(j1.Address)
-		if err != nil {
-			return nil, err
-		}
-
-		curveT, err := crypto.CurveTypeFromString(j1.CurveType)
-		if err != nil {
-			return nil, err
-		}
-
-		privKey, err := hex.DecodeString(j1.PrivateKey)
-		if err != nil {
-			return nil, err
-		}
-
-		key, err := keys.NewKeyFromPriv(curveT, privKey)
-		if err != nil {
-			return nil, err
-		}
-
-		// store the new key
-		if err = p.keys.StoreKey(in.GetPassphrase(), key); err != nil {
-			return nil, err
-		}
-	}
-	return &keys.ImportResponse{Address: addr}, nil
+	addr, err := p.keys.ImportJSON(in.GetPassphrase(), in.GetJSON())
+	return &keys.ImportResponse{Address: *addr}, err
 }
 
 func (p *Proxy) Import(ctx context.Context, in *keys.ImportRequest) (*keys.ImportResponse, error) {
@@ -227,58 +149,8 @@ func (p *Proxy) Import(ctx context.Context, in *keys.ImportRequest) (*keys.Impor
 }
 
 func (p *Proxy) List(ctx context.Context, in *keys.ListRequest) (*keys.ListResponse, error) {
-	byname, err := p.keys.GetAllNames()
-	if err != nil {
-		return nil, err
-	}
-
-	var list []*keys.KeyID
-
-	if in.KeyName != "" {
-		if addr, ok := byname[in.KeyName]; ok {
-			list = append(list, &keys.KeyID{
-				KeyName: getAddressNames(addr, byname),
-				Address: addr,
-			})
-		} else {
-			if addr, err := crypto.AddressFromHexString(in.KeyName); err == nil {
-				_, err := p.keys.GetKey("", addr)
-				if err == nil {
-					list = append(list, &keys.KeyID{
-						Address: addr,
-						KeyName: getAddressNames(addr, byname)},
-					)
-				}
-			}
-		}
-	} else {
-		// list all address
-		addrs, err := p.keys.GetAllAddresses()
-		if err != nil {
-			return nil, err
-		}
-
-		for _, addr := range addrs {
-			list = append(list, &keys.KeyID{
-				KeyName: getAddressNames(addr, byname),
-				Address: addr,
-			})
-		}
-	}
-
-	return &keys.ListResponse{Key: list}, nil
-}
-
-func getAddressNames(address crypto.Address, byname map[string]crypto.Address) []string {
-	names := make([]string, 0)
-
-	for name, addr := range byname {
-		if address == addr {
-			names = append(names, name)
-		}
-	}
-
-	return names
+	list, err := p.keys.List(in.GetKeyName())
+	return &keys.ListResponse{Key: list}, err
 }
 
 func (p *Proxy) RemoveName(ctx context.Context, in *keys.RemoveNameRequest) (*keys.RemoveNameResponse, error) {
